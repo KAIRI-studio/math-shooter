@@ -6,45 +6,46 @@
     <title>KAIRI Studio - Math Shooter</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style> 
-        body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: none; width: 100vw; height: 100vh; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: none; }
         /* 縦画面の時に警告を出す（スマホのみ） */
         @media screen and (orientation: portrait) {
             #orientation-warning { display: flex !important; }
         }
         #orientation-warning {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); color: white; z-index: 10000;
+            background: #000; color: white; z-index: 10000;
             justify-content: center; align-items: center; text-align: center; font-family: sans-serif;
         }
     </style>
 </head>
 <body>
-    <div id="orientation-warning"><h1>画面を横向きにしてください</h1></div>
+    <div id="orientation-warning"><h1>画面を横向きにして<br>リロードしてください</h1></div>
 <script>
+// PCかスマホかを判定
+const isMobile = !Phaser.Device.Os.desktop;
+
 const config = {
     type: Phaser.AUTO,
     scale: {
-        mode: Phaser.Scale.FIT,
+        mode: isMobile ? Phaser.Scale.FIT : Phaser.Scale.NONE, // PCはリサイズせず固定
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: 1280, // 内部解像度を固定（当たり判定のズレを防止）
+        width: 1280,
         height: 720
     },
-    physics: { 
-        default: 'arcade', 
-        arcade: { gravity: { y: 1500 }, debug: false } 
-    },
+    physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
 
 const game = new Phaser.Game(config);
 let player, enemies, bombs, bullets = [], shipGroup, keys, spaceKey, ground, bg;
 let isGameOver = false, isQuizActive = false, isClear = false, isWaitingToStart = true;
-let distanceText, bgm, lastDirection = 'right', lastShootTime = 0, lastWasBomb = false;
-let moveLeft = false, moveRight = false, doJump = false;
-
+let distanceText, bgm; 
+let lastDirection = 'right', lastShootTime = 0;
+let lastWasBomb = false;
 const WORLD_WIDTH = 15000; 
-const GOAL_DISTANCE = 10000;
-const H = 720; // 内部座標の基準高さ
+const GOAL_DISTANCE = 10000; 
+
+let moveLeft = false, moveRight = false, doJump = false;
 
 function preload() {
     this.load.image('player_sprite', 'player.png');
@@ -56,31 +57,31 @@ function preload() {
 }
 
 function create() {
-    // 物理世界の境界を固定
-    this.physics.world.setBounds(0, 0, WORLD_WIDTH, H);
-    
-    bg = this.add.tileSprite(0, H, WORLD_WIDTH, 1500, 'background').setOrigin(0, 1).setScrollFactor(0);
-    
-    ground = this.add.rectangle(WORLD_WIDTH / 2, H - 20, WORLD_WIDTH, 40, 0xaaaaaa);
+    const gameH = 720;
+    isGameOver = false; isQuizActive = false; isClear = false; isWaitingToStart = true;
+    bullets = []; 
+    this.physics.world.setBounds(0, 0, WORLD_WIDTH, gameH);
+
+    bg = this.add.tileSprite(0, gameH, WORLD_WIDTH, 1500, 'background').setOrigin(0, 1).setScrollFactor(0);
+    ground = this.add.rectangle(WORLD_WIDTH / 2, gameH - 20, WORLD_WIDTH, 40, 0xaaaaaa);
     this.physics.add.existing(ground, true);
 
-    const goalLine = this.add.rectangle(GOAL_DISTANCE, H / 2, 20, H, 0xff0000, 0.5);
-    this.add.text(GOAL_DISTANCE, H / 2 - 100, 'GOAL', { fontSize: '60px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5);
+    const goalLine = this.add.rectangle(GOAL_DISTANCE, gameH / 2, 20, gameH, 0xff0000, 0.5);
+    this.add.text(GOAL_DISTANCE, gameH / 2 - 100, 'GOAL', { fontSize: '60px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5);
 
-    player = this.physics.add.sprite(300, H - 100, 'player_sprite').setScale(0.15).setOrigin(0.5, 1);
+    player = this.physics.add.sprite(300, gameH - 100, 'player_sprite').setScale(0.15).setOrigin(0.5, 1);
     player.body.setCollideWorldBounds(true);
     player.body.setSize(player.width * 0.6, player.height * 0.9).setOffset(player.width * 0.2, player.height * 0.1);
 
-    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, H);
+    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, gameH);
     this.cameras.main.startFollow(player, true, 0.1, 0.1);
 
     enemies = this.physics.add.group();
     bombs = this.physics.add.group();
     shipGroup = this.physics.add.staticGroup();
 
-    // 船の配置（当たり判定がスルーしないよう、physics.add.existingを確実に実行）
     for(let x = 2000; x < GOAL_DISTANCE; x += 2000) {
-        let s = shipGroup.create(x, H - 20, 'ship_sprite').setScale(0.5).setOrigin(0, 1).refreshBody();
+        let s = shipGroup.create(x, gameH - 20, 'ship_sprite').setScale(0.5).setOrigin(0, 1).refreshBody();
         s.body.setSize(s.width * 0.45, s.height * 0.6).setOffset(s.width * 0.1, s.height * 0.4);
     }
 
@@ -88,12 +89,11 @@ function create() {
     bgm = this.sound.add('main_bgm', { volume: 0.15, loop: true });
 
     createStartButton(this);
-    if (!this.sys.game.device.os.desktop) { createTouchControls(this); }
+    if (isMobile) { createTouchControls(this); }
 
     keys = this.input.keyboard.addKeys('W,A,S,D');
     spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
-    // 当たり判定の登録
     this.physics.add.collider(player, ground);
     this.physics.add.collider(player, enemies, onPlayerHit, null, this);
     this.physics.add.collider(player, shipGroup, startQuiz, null, this);
@@ -103,26 +103,25 @@ function create() {
 }
 
 function createTouchControls(scene) {
-    const W = 1280; const BH = 720;
+    const W = 1280; const H = 720;
     const btn = (x, y, txt, start, end) => {
-        let c = scene.add.circle(x, y, 70, 0xffffff, 0.2).setInteractive().setScrollFactor(0);
+        let c = scene.add.circle(x, y, 80, 0xffffff, 0.3).setInteractive().setScrollFactor(0);
         c.on('pointerdown', start); c.on('pointerup', end); c.on('pointerout', end);
-        scene.add.text(x, y, txt, { fontSize: '50px' }).setOrigin(0.5).setScrollFactor(0);
+        scene.add.text(x, y, txt, { fontSize: '60px' }).setOrigin(0.5).setScrollFactor(0);
     };
-    btn(120, BH - 120, '←', () => moveLeft = true, () => moveLeft = false);
-    btn(300, BH - 120, '→', () => moveRight = true, () => moveRight = false);
-    btn(W - 120, BH - 280, '↑', () => doJump = true, () => doJump = false);
-    let f = scene.add.circle(W - 150, BH - 120, 90, 0xff0000, 0.4).setInteractive().setScrollFactor(0);
+    btn(150, H - 120, '←', () => moveLeft = true, () => moveLeft = false);
+    btn(350, H - 120, '→', () => moveRight = true, () => moveRight = false);
+    btn(W - 120, H - 300, '↑', () => doJump = true, () => doJump = false);
+    let f = scene.add.circle(W - 150, H - 120, 100, 0xff0000, 0.5).setInteractive().setScrollFactor(0);
     f.on('pointerdown', () => { if(!isQuizActive && !isWaitingToStart) shoot(scene); });
-    scene.add.text(W - 150, BH - 120, 'FIRE', { fontSize: '30px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0);
+    scene.add.text(W - 150, H - 120, 'FIRE', { fontSize: '35px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0);
 }
 
 function createStartButton(scene) {
     const startButton = scene.add.rectangle(640, 360, 400, 100, 0xffffff, 0.2).setInteractive().setScrollFactor(0).setStrokeStyle(4, 0xffffff);
     const startText = scene.add.text(640, 360, 'スタート', { fontSize: '48px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0);
     startButton.on('pointerdown', () => {
-        // スマホならフルスクリーンを要求
-        if (!scene.sys.game.device.os.desktop) { scene.scale.startFullscreen(); }
+        if (isMobile) { scene.scale.startFullscreen(); }
         isWaitingToStart = false; startButton.destroy(); startText.destroy(); 
         if (bgm) bgm.play(); scheduleNextSpawn(scene); scheduleNextBombSpawn(scene);
     });
@@ -152,16 +151,15 @@ function update(time) {
     });
 }
 
-function startQuiz(player, ship) {
+function startQuiz(p, ship) {
     if (isQuizActive || isClear || isWaitingToStart) return;
-    isQuizActive = true; player.setVelocityX(0);
-    const pW = 600, pH = 500;
-    const overlay = this.add.rectangle(640, 360, pW, pH, 0x000000, 0.95).setStrokeStyle(4, 0xffffff).setScrollFactor(0);
+    isQuizActive = true; p.setVelocityX(0);
+    const overlay = this.add.rectangle(640, 360, 600, 500, 0x000000, 0.95).setStrokeStyle(4, 0xffffff).setScrollFactor(0);
     const qText = this.add.text(640, 240, '', { fontSize: '60px', color: '#fff' }).setOrigin(0.5).setScrollFactor(0);
     const buttons = [];
     for (let i = 0; i < 3; i++) {
-        const btn = this.add.rectangle(640, 380 + (i * 70), 250, 50, 0x333333).setInteractive().setStrokeStyle(2, 0xffffff).setScrollFactor(0);
-        const txt = this.add.text(640, 380 + (i * 70), '', { fontSize: '32px', color: '#fff' }).setOrigin(0.5).setScrollFactor(0);
+        const btn = this.add.rectangle(640, 380 + (i * 80), 300, 60, 0x333333).setInteractive().setStrokeStyle(2, 0xffffff).setScrollFactor(0);
+        const txt = this.add.text(640, 380 + (i * 80), '', { fontSize: '40px', color: '#fff' }).setOrigin(0.5).setScrollFactor(0);
         btn.txt = txt;
         btn.on('pointerdown', () => {
             if (btn.val === btn.ans) {
@@ -183,13 +181,13 @@ function generateProblem(qText, buttons) {
 
 function spawnEnemy(scene) {
     if (isGameOver || isClear || isWaitingToStart) return;
-    const e = scene.physics.add.sprite(scene.cameras.main.scrollX + 1400, H - 100, 'enemy_sprite').setScale(0.22).setOrigin(0.5, 1);
+    const e = scene.physics.add.sprite(scene.cameras.main.scrollX + 1400, 720 - 100, 'enemy_sprite').setScale(0.22).setOrigin(0.5, 1);
     e.setData('hp', 4); enemies.add(e); e.body.setVelocityX(-200);
 }
 function spawnBomb(scene) {
     if (isGameOver || isClear || isWaitingToStart) return;
     if (lastWasBomb || Math.random() > 0.2) { lastWasBomb = false; return; }
-    const b = scene.physics.add.sprite(scene.cameras.main.scrollX + 1400, H - 60, 'bomb_sprite').setScale(0.08).setOrigin(0.5, 1);
+    const b = scene.physics.add.sprite(scene.cameras.main.scrollX + 1400, 720 - 60, 'bomb_sprite').setScale(0.08).setOrigin(0.5, 1);
     bombs.add(b); b.body.setVelocityX(-250); lastWasBomb = true;
 }
 function shoot(scene) {
