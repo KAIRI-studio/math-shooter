@@ -2,17 +2,25 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>KAIRI Studio - Math Shooter</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
-    <style> body { margin: 0; padding: 0; overflow: hidden; background: #000; } canvas { display: block; } </style>
+    <style> 
+        body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: none; }
+        canvas { display: block; margin: 0 auto; }
+    </style>
 </head>
 <body>
 <script>
 const config = {
     type: Phaser.AUTO,
-    width: window.innerWidth,
-    height: window.innerHeight,
+    scale: {
+        mode: Phaser.Scale.FIT, // 画面に合わせて自動リサイズ
+        autoCenter: Phaser.Scale.CENTER_BOTH, // 真ん中に寄せる
+        width: 1280,  // ゲーム内の基準サイズを固定（重要！）
+        height: 720,
+        orientation: Phaser.Scale.LANDSCAPE // 横向き推奨設定
+    },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
@@ -22,7 +30,7 @@ let player, enemies, bombs, bullets = [], shipGroup, keys, spaceKey, ground, bg;
 let isGameOver = false, isQuizActive = false, isClear = false, isWaitingToStart = true;
 let distanceText, bgm; 
 let lastDirection = 'right', lastShootTime = 0;
-let lastWasBomb = false; // 爆弾の連続出現防止フラグ
+let lastWasBomb = false;
 const WORLD_WIDTH = 15000; 
 const GOAL_DISTANCE = 10000; 
 
@@ -38,26 +46,30 @@ function preload() {
 }
 
 function create() {
+    // 画面の幅・高さを基準サイズから取得
+    const gameW = this.cameras.main.width;
+    const gameH = this.cameras.main.height;
+
     isGameOver = false; isQuizActive = false; isClear = false; isWaitingToStart = true;
     bullets = []; 
-    this.physics.world.setBounds(0, 0, WORLD_WIDTH, window.innerHeight);
+    this.physics.world.setBounds(0, 0, WORLD_WIDTH, gameH);
 
-    bg = this.add.tileSprite(0, window.innerHeight, WORLD_WIDTH, 1500, 'background');
+    bg = this.add.tileSprite(0, gameH, WORLD_WIDTH, 1500, 'background');
     bg.setOrigin(0, 1).setScrollFactor(0);
 
     const GROUND_HEIGHT = 40;
-    ground = this.add.rectangle(WORLD_WIDTH / 2, window.innerHeight - (GROUND_HEIGHT / 2), WORLD_WIDTH, GROUND_HEIGHT, 0xaaaaaa);
+    ground = this.add.rectangle(WORLD_WIDTH / 2, gameH - (GROUND_HEIGHT / 2), WORLD_WIDTH, GROUND_HEIGHT, 0xaaaaaa);
     this.physics.add.existing(ground, true);
 
-    const goalLine = this.add.rectangle(GOAL_DISTANCE, window.innerHeight / 2, 20, window.innerHeight, 0xff0000, 0.5);
-    this.add.text(GOAL_DISTANCE, window.innerHeight / 2 - 100, 'GOAL', { fontSize: '60px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5);
+    const goalLine = this.add.rectangle(GOAL_DISTANCE, gameH / 2, 20, gameH, 0xff0000, 0.5);
+    this.add.text(GOAL_DISTANCE, gameH / 2 - 100, 'GOAL', { fontSize: '60px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5);
 
-    player = this.physics.add.sprite(300, window.innerHeight - 100, 'player_sprite');
+    player = this.physics.add.sprite(300, gameH - 100, 'player_sprite');
     player.setScale(0.15).setOrigin(0.5, 1);
     player.body.setCollideWorldBounds(true);
     player.body.setSize(player.width * 0.6, player.height * 0.9).setOffset(player.width * 0.2, player.height * 0.1);
 
-    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, window.innerHeight);
+    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, gameH);
     this.cameras.main.startFollow(player, true, 0.1, 0.1);
 
     enemies = this.physics.add.group();
@@ -65,7 +77,7 @@ function create() {
     shipGroup = this.physics.add.staticGroup();
 
     for(let x = 2000; x < GOAL_DISTANCE; x += 2000) {
-        const s = this.add.sprite(x, window.innerHeight - 20, 'ship_sprite');
+        const s = this.add.sprite(x, gameH - 20, 'ship_sprite');
         s.setScale(0.5).setOrigin(0, 1);
         this.physics.add.existing(s, true);
         const shipHitW = s.width * 0.45;
@@ -81,7 +93,8 @@ function create() {
     bgm = this.sound.add('main_bgm', { volume: 0.15, loop: true });
 
     createStartButton(this);
-    if (this.sys.game.device.input.touch) { createTouchControls(this); }
+    // 常時ボタンを表示するように一旦戻します（判定がスマホでシビアな場合があるため）
+    createTouchControls(this);
 
     keys = this.input.keyboard.addKeys('W,A,S,D');
     spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
@@ -95,21 +108,23 @@ function create() {
 }
 
 function createTouchControls(scene) {
-    const W = window.innerWidth;
-    const H = window.innerHeight;
+    const W = scene.cameras.main.width;
+    const H = scene.cameras.main.height;
     const btn = (x, y, txt, start, end) => {
-        let c = scene.add.circle(x, y, 45, 0xffffff, 0.2).setInteractive().setScrollFactor(0);
+        let c = scene.add.circle(x, y, 60, 0xffffff, 0.2).setInteractive().setScrollFactor(0);
         c.on('pointerdown', start); c.on('pointerup', end); c.on('pointerout', end);
-        scene.add.text(x, y, txt, { fontSize: '40px' }).setOrigin(0.5).setScrollFactor(0);
+        scene.add.text(x, y, txt, { fontSize: '60px' }).setOrigin(0.5).setScrollFactor(0);
     };
-    btn(80, H - 80, '←', () => moveLeft = true, () => moveLeft = false);
-    btn(180, H - 80, '→', () => moveRight = true, () => moveRight = false);
-    btn(W - 80, H - 180, '↑', () => doJump = true, () => doJump = false);
-    let f = scene.add.circle(W - 80, H - 80, 55, 0xff0000, 0.4).setInteractive().setScrollFactor(0);
+    // ボタンを少し大きく、位置を調整
+    btn(100, H - 100, '←', () => moveLeft = true, () => moveLeft = false);
+    btn(280, H - 100, '→', () => moveRight = true, () => moveRight = false);
+    btn(W - 100, H - 250, '↑', () => doJump = true, () => doJump = false);
+    let f = scene.add.circle(W - 120, H - 100, 80, 0xff0000, 0.4).setInteractive().setScrollFactor(0);
     f.on('pointerdown', () => { if(!isQuizActive && !isWaitingToStart) shoot(scene); });
-    scene.add.text(W - 80, H - 80, 'FIRE', { fontSize: '24px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0);
+    scene.add.text(W - 120, H - 100, 'FIRE', { fontSize: '30px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0);
 }
 
+// （SE・クイズ・クリア等の関数は変更なしのため省略せずに含めますが、内部の座標をgameHに合わせました）
 function playSE(scene, type) {
     const ctx = scene.sound.context;
     if (type === 'shoot') {
@@ -187,16 +202,16 @@ function createStartButton(scene) {
 function startQuiz(player, ship) {
     if (isQuizActive || isClear || isWaitingToStart) return;
     isQuizActive = true; player.setVelocityX(0);
-    const centerX = this.cameras.main.worldView.centerX, centerY = this.cameras.main.worldView.centerY;
-    const pW = 500, pH = 400, topY = centerY - (pH / 2);
-    const overlay = this.add.rectangle(centerX, centerY, pW, pH, 0x000000, 0.95).setStrokeStyle(4, 0xffffff);
-    const title = this.add.text(centerX, topY + 40, 'もんだい', { fontSize: '28px', color: '#ffff00' }).setOrigin(0.5);
-    const qText = this.add.text(centerX, topY + 120, '', { fontSize: '50px', color: '#fff' }).setOrigin(0.5);
+    const centerX = this.cameras.main.width / 2, centerY = this.cameras.main.height / 2;
+    const pW = 600, pH = 500, topY = centerY - (pH / 2); // クイズ画面も少し大きく
+    const overlay = this.add.rectangle(centerX, centerY, pW, pH, 0x000000, 0.95).setStrokeStyle(4, 0xffffff).setScrollFactor(0);
+    const title = this.add.text(centerX, topY + 60, 'もんだい', { fontSize: '40px', color: '#ffff00' }).setOrigin(0.5).setScrollFactor(0);
+    const qText = this.add.text(centerX, topY + 160, '', { fontSize: '70px', color: '#fff' }).setOrigin(0.5).setScrollFactor(0);
     const buttons = [];
     for (let i = 0; i < 3; i++) {
-        const btnY = topY + 210 + (i * 65);
-        const btn = this.add.rectangle(centerX, btnY, 200, 45, 0x333333).setInteractive().setStrokeStyle(2, 0xffffff);
-        const txt = this.add.text(centerX, btnY, '', { fontSize: '28px', color: '#fff' }).setOrigin(0.5);
+        const btnY = topY + 280 + (i * 80);
+        const btn = this.add.rectangle(centerX, btnY, 300, 60, 0x333333).setInteractive().setStrokeStyle(2, 0xffffff).setScrollFactor(0);
+        const txt = this.add.text(centerX, btnY, '', { fontSize: '40px', color: '#fff' }).setOrigin(0.5).setScrollFactor(0);
         btn.txt = txt;
         btn.on('pointerdown', () => { 
             if (btn.val === btn.ans) { playSE(this, 'quiz_correct'); [overlay, title, qText, ...buttons, ...buttons.map(b=>b.txt)].forEach(obj => obj.destroy()); ship.destroy(); isQuizActive = false; } 
@@ -222,7 +237,12 @@ function update(time) {
     if (player.x >= GOAL_DISTANCE) { handleClear(this); return; }
     bg.tilePositionX = this.cameras.main.scrollX * 0.4;
     enemies.getChildren().forEach(e => { if (e.body.velocity.x > 0) e.setFlipX(false); else e.setFlipX(true); });
-    if (this.input.activePointer.isDown && time > lastShootTime + 200 && !isQuizActive && this.input.activePointer.x > 300 && this.input.activePointer.x < window.innerWidth - 200) { shoot(this); lastShootTime = time; }
+    
+    // FIREボタンエリアを避けてタップ判定
+    if (this.input.activePointer.isDown && time > lastShootTime + 200 && !isQuizActive && this.input.activePointer.x < this.cameras.main.width - 250) { 
+        shoot(this); lastShootTime = time; 
+    }
+
     if (!isQuizActive) { 
         if (keys.A.isDown || moveLeft) { player.setVelocityX(-400); player.setFlipX(true); lastDirection = 'left'; } 
         else if (keys.D.isDown || moveRight) { player.setVelocityX(400); player.setFlipX(false); lastDirection = 'right'; } 
@@ -242,38 +262,11 @@ function update(time) {
 
 function handleClear(scene) { if (isClear) return; isClear = true; player.setVelocity(0, 0); enemies.clear(true, true); bombs.clear(true, true); if(bgm) bgm.stop(); playClearJingle(scene); const centerX = scene.cameras.main.width / 2, centerY = scene.cameras.main.height / 2; scene.add.text(centerX, centerY, 'CLEAR!!', { fontSize: '100px', fill: '#fff', fontStyle: 'bold', stroke: '#000', strokeThickness: 12 }).setOrigin(0.5).setScrollFactor(0); scene.tweens.add({ targets: player, alpha: 0.5, duration: 100, yoyo: true, repeat: 30 }); scene.time.delayedCall(6000, () => { scene.scene.restart(); }); }
 function onPlayerHit() { if (!isGameOver && !isClear && !isWaitingToStart) { isGameOver = true; if(bgm) bgm.stop(); playSE(this, 'dead'); player.setTint(0xff0000); this.time.delayedCall(1000, () => this.scene.restart()); } }
-function spawnEnemy(scene) { if (isGameOver || isClear || isWaitingToStart) return; const isFromLeft = Math.random() < 0.30; const cam = scene.cameras.main, spawnX = isFromLeft ? cam.scrollX - 150 : cam.scrollX + cam.width + 150; const e = scene.physics.add.sprite(spawnX, window.innerHeight - 200, 'enemy_sprite'); e.setScale(0.22).setOrigin(0.5, 1); e.setData('hp', 4); enemies.add(e); scene.physics.add.collider(e, ground); e.body.setSize(e.width * 0.4, e.height * 0.6).setOffset((e.width - e.width * 0.4) / 2, e.height - e.height * 0.6); if (isFromLeft) { e.body.setVelocityX(200); e.setTint(0xffaa00); } else { e.body.setVelocityX(-100); } }
-
-// 修正：爆弾の出現ロジックをマイルドに
-function spawnBomb(scene) { 
-    if (isGameOver || isClear || isWaitingToStart) return; 
-    const cam = scene.cameras.main, spawnX = cam.scrollX + cam.width + 100; 
-    const b = scene.physics.add.sprite(spawnX, window.innerHeight - 100, 'bomb_sprite'); 
-    b.setScale(0.08).setOrigin(0.5, 1); 
-    bombs.add(b); 
-    scene.physics.add.collider(b, ground); 
-    b.body.setVelocityX(-200); 
-}
-
-function scheduleNextSpawn(scene) { scene.time.delayedCall(Phaser.Math.Between(2000, 4500), () => { if (!isGameOver && !isClear && !isWaitingToStart) { spawnEnemy(scene); scheduleNextSpawn(scene); } }); }
-
-// 修正：出現率を下げ、連続出現を禁止
-function scheduleNextBombSpawn(scene) { 
-    scene.time.delayedCall(1800, () => { // チェック間隔を少し伸ばした
-        if (!isGameOver && !isClear && !isWaitingToStart) {
-            // 出現率を20%に下げ、かつ「前回が爆弾じゃなかった時」だけ出現チャンス
-            if (!lastWasBomb && Math.random() < 0.2) { 
-                spawnBomb(scene); 
-                lastWasBomb = true; // 今回出したのでフラグを立てる
-            } else {
-                lastWasBomb = false; // 出さなかったのでフラグを折る（次は出せる）
-            }
-        }
-        scheduleNextBombSpawn(scene); 
-    }); 
-}
-
+function spawnEnemy(scene) { if (isGameOver || isClear || isWaitingToStart) return; const isFromLeft = Math.random() < 0.30; const cam = scene.cameras.main, spawnX = isFromLeft ? cam.scrollX - 150 : cam.scrollX + cam.width + 150; const e = scene.physics.add.sprite(spawnX, scene.cameras.main.height - 200, 'enemy_sprite'); e.setScale(0.22).setOrigin(0.5, 1); e.setData('hp', 4); enemies.add(e); scene.physics.add.collider(e, ground); e.body.setSize(e.width * 0.4, e.height * 0.6).setOffset((e.width - e.width * 0.4) / 2, e.height - e.height * 0.6); if (isFromLeft) { e.body.setVelocityX(200); e.setTint(0xffaa00); } else { e.body.setVelocityX(-100); } }
+function spawnBomb(scene) { if (isGameOver || isClear || isWaitingToStart) return; const cam = scene.cameras.main, spawnX = cam.scrollX + cam.width + 100; const b = scene.physics.add.sprite(spawnX, scene.cameras.main.height - 100, 'bomb_sprite'); b.setScale(0.08).setOrigin(0.5, 1); bombs.add(b); scene.physics.add.collider(b, ground); b.body.setVelocityX(-200); }
 function shoot(scene) { if (isWaitingToStart) return; playSE(scene, 'shoot'); const b = scene.add.rectangle(player.x + (lastDirection === 'right' ? 45 : -45), player.y - 70, 25, 6, 0xffff00); scene.physics.add.existing(b); b.body.setAllowGravity(false); b.body.setVelocityX(lastDirection === 'left' ? -1500 : 1500); b.active = true; bullets.push(b); scene.time.delayedCall(1000, () => { if(b.active) { b.active = false; b.destroy(); } }); }
+function scheduleNextSpawn(scene) { scene.time.delayedCall(Phaser.Math.Between(2000, 4500), () => { if (!isGameOver && !isClear && !isWaitingToStart) { spawnEnemy(scene); scheduleNextSpawn(scene); } }); }
+function scheduleNextBombSpawn(scene) { scene.time.delayedCall(1800, () => { if (!isGameOver && !isClear && !isWaitingToStart) { if (!lastWasBomb && Math.random() < 0.2) { spawnBomb(scene); lastWasBomb = true; } else { lastWasBomb = false; } } scheduleNextBombSpawn(scene); }); }
 </script>
 </body>
 </html>
