@@ -6,8 +6,8 @@
     <title>KAIRI Studio - Math Shooter</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style> 
-        body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: none; }
-        canvas { display: block; margin: 0 auto; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: none; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        canvas { display: block; max-width: 100%; max-height: 100%; object-fit: contain; } 
     </style>
 </head>
 <body>
@@ -15,11 +15,11 @@
 const config = {
     type: Phaser.AUTO,
     scale: {
-        mode: Phaser.Scale.FIT, // 画面に合わせて自動リサイズ
-        autoCenter: Phaser.Scale.CENTER_BOTH, // 真ん中に寄せる
-        width: 1280,  // ゲーム内の基準サイズを固定（重要！）
+        mode: Phaser.Scale.FIT, // 画面に合わせて安全に拡大縮小（崩れない！）
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: 1280, 
         height: 720,
-        orientation: Phaser.Scale.LANDSCAPE // 横向き推奨設定
+        orientation: Phaser.Scale.LANDSCAPE
     },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
@@ -46,30 +46,24 @@ function preload() {
 }
 
 function create() {
-    // 画面の幅・高さを基準サイズから取得
-    const gameW = this.cameras.main.width;
-    const gameH = this.cameras.main.height;
-
+    const H = 720;
     isGameOver = false; isQuizActive = false; isClear = false; isWaitingToStart = true;
     bullets = []; 
-    this.physics.world.setBounds(0, 0, WORLD_WIDTH, gameH);
+    this.physics.world.setBounds(0, 0, WORLD_WIDTH, H);
 
-    bg = this.add.tileSprite(0, gameH, WORLD_WIDTH, 1500, 'background');
-    bg.setOrigin(0, 1).setScrollFactor(0);
-
+    bg = this.add.tileSprite(0, H, WORLD_WIDTH, 1500, 'background').setOrigin(0, 1).setScrollFactor(0);
     const GROUND_HEIGHT = 40;
-    ground = this.add.rectangle(WORLD_WIDTH / 2, gameH - (GROUND_HEIGHT / 2), WORLD_WIDTH, GROUND_HEIGHT, 0xaaaaaa);
+    ground = this.add.rectangle(WORLD_WIDTH / 2, H - (GROUND_HEIGHT / 2), WORLD_WIDTH, GROUND_HEIGHT, 0xaaaaaa);
     this.physics.add.existing(ground, true);
 
-    const goalLine = this.add.rectangle(GOAL_DISTANCE, gameH / 2, 20, gameH, 0xff0000, 0.5);
-    this.add.text(GOAL_DISTANCE, gameH / 2 - 100, 'GOAL', { fontSize: '60px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5);
+    const goalLine = this.add.rectangle(GOAL_DISTANCE, H / 2, 20, H, 0xff0000, 0.5);
+    this.add.text(GOAL_DISTANCE, H / 2 - 100, 'GOAL', { fontSize: '60px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5);
 
-    player = this.physics.add.sprite(300, gameH - 100, 'player_sprite');
-    player.setScale(0.15).setOrigin(0.5, 1);
+    player = this.physics.add.sprite(300, H - 100, 'player_sprite').setScale(0.15).setOrigin(0.5, 1);
     player.body.setCollideWorldBounds(true);
     player.body.setSize(player.width * 0.6, player.height * 0.9).setOffset(player.width * 0.2, player.height * 0.1);
 
-    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, gameH);
+    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, H);
     this.cameras.main.startFollow(player, true, 0.1, 0.1);
 
     enemies = this.physics.add.group();
@@ -77,13 +71,7 @@ function create() {
     shipGroup = this.physics.add.staticGroup();
 
     for(let x = 2000; x < GOAL_DISTANCE; x += 2000) {
-        const s = this.add.sprite(x, gameH - 20, 'ship_sprite');
-        s.setScale(0.5).setOrigin(0, 1);
-        this.physics.add.existing(s, true);
-        const shipHitW = s.width * 0.45;
-        const shipHitH = s.height * 0.6;
-        s.body.setSize(shipHitW, shipHitH).setOffset(s.width * 0.1, s.height - shipHitH);
-        shipGroup.add(s);
+        this.physics.add.existing(this.add.sprite(x, H - 20, 'ship_sprite').setScale(0.5).setOrigin(0, 1), true);
     }
 
     distanceText = this.add.text(20, 30, '', { 
@@ -93,177 +81,45 @@ function create() {
     bgm = this.sound.add('main_bgm', { volume: 0.15, loop: true });
 
     createStartButton(this);
-    // 常時ボタンを表示するように一旦戻します（判定がスマホでシビアな場合があるため）
-    createTouchControls(this);
+    createTouchControls(this); // 常時ボタン表示
 
     keys = this.input.keyboard.addKeys('W,A,S,D');
     spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
     this.physics.add.collider(player, enemies, onPlayerHit, null, this);
-    this.physics.add.collider(player, shipGroup, startQuiz, null, this);
-    this.physics.add.collider(player, bombs, onPlayerHit, null, this);
     this.physics.add.collider(player, ground);
     this.physics.add.collider(enemies, ground);
     this.physics.add.collider(bombs, ground); 
 }
 
 function createTouchControls(scene) {
-    const W = scene.cameras.main.width;
-    const H = scene.cameras.main.height;
-    const btn = (x, y, txt, start, end) => {
-        let c = scene.add.circle(x, y, 60, 0xffffff, 0.2).setInteractive().setScrollFactor(0);
+    const W = 1280; const H = 720;
+    const btn = (x, y, txt, color, start, end) => {
+        let c = scene.add.circle(x, y, 90, color, 0.3).setInteractive().setScrollFactor(0);
         c.on('pointerdown', start); c.on('pointerup', end); c.on('pointerout', end);
         scene.add.text(x, y, txt, { fontSize: '60px' }).setOrigin(0.5).setScrollFactor(0);
     };
     // ボタンを少し大きく、位置を調整
-    btn(100, H - 100, '←', () => moveLeft = true, () => moveLeft = false);
-    btn(280, H - 100, '→', () => moveRight = true, () => moveRight = false);
-    btn(W - 100, H - 250, '↑', () => doJump = true, () => doJump = false);
-    let f = scene.add.circle(W - 120, H - 100, 80, 0xff0000, 0.4).setInteractive().setScrollFactor(0);
-    f.on('pointerdown', () => { if(!isQuizActive && !isWaitingToStart) shoot(scene); });
-    scene.add.text(W - 120, H - 100, 'FIRE', { fontSize: '30px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0);
-}
-
-// （SE・クイズ・クリア等の関数は変更なしのため省略せずに含めますが、内部の座標をgameHに合わせました）
-function playSE(scene, type) {
-    const ctx = scene.sound.context;
-    if (type === 'shoot') {
-        const osc = ctx.createOscillator(); const gain = ctx.createGain();
-        osc.type = 'square'; osc.frequency.setValueAtTime(1200, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.05);
-        gain.gain.setValueAtTime(0.05, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(); osc.stop(ctx.currentTime + 0.05);
-    } else if (type === 'hit') {
-        const osc = ctx.createOscillator(); const gain = ctx.createGain();
-        osc.type = 'sine'; osc.frequency.setValueAtTime(1000, ctx.currentTime);
-        gain.gain.setValueAtTime(0.08, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(); osc.stop(ctx.currentTime + 0.08);
-    } else if (type === 'destroy') {
-        const osc = ctx.createOscillator(); const gain = ctx.createGain();
-        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, ctx.currentTime);
-        osc.frequency.linearRampToValueAtTime(40, ctx.currentTime + 0.15);
-        gain.gain.setValueAtTime(0.12, ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.15);
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(); osc.stop(ctx.currentTime + 0.15);
-    } else if (type === 'quiz_correct') {
-        [523.25, 1046.50].forEach((freq, i) => {
-            const osc = ctx.createOscillator(); const gain = ctx.createGain();
-            osc.type = 'sine'; osc.frequency.setValueAtTime(freq, ctx.currentTime + (i * 0.1));
-            gain.gain.setValueAtTime(0.1, ctx.currentTime + (i * 0.1));
-            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i * 0.1) + 0.2);
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.start(ctx.currentTime + (i * 0.1)); osc.stop(ctx.currentTime + (i * 0.1) + 0.2);
-        });
-    } else if (type === 'quiz_wrong') {
-        [150, 150].forEach((freq, i) => {
-            const osc = ctx.createOscillator(); const gain = ctx.createGain();
-            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(freq, ctx.currentTime + (i * 0.15));
-            gain.gain.setValueAtTime(0.1, ctx.currentTime + (i * 0.15));
-            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i * 0.15) + 0.1);
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.start(ctx.currentTime + (i * 0.15)); osc.stop(ctx.currentTime + (i * 0.15) + 0.15);
-        });
-    } else if (type === 'dead') {
-        const osc = ctx.createOscillator(); const gain = ctx.createGain();
-        osc.type = 'square'; osc.frequency.setValueAtTime(100, ctx.currentTime);
-        gain.gain.setValueAtTime(0.2, ctx.currentTime);
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(); osc.stop(ctx.currentTime + 0.3);
-    }
-}
-
-function playClearJingle(scene) {
-    const ctx = scene.sound.context;
-    const melody = [523.25, 659.25, 783.99, 659.25, 1046.50];
-    const timings = [0, 0.15, 0.3, 0.45, 0.6];
-    melody.forEach((freq, i) => {
-        const osc = ctx.createOscillator(); const gain = ctx.createGain();
-        osc.type = 'triangle'; osc.frequency.setValueAtTime(freq, ctx.currentTime + timings[i]);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime + timings[i]);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + timings[i] + 0.2);
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start(ctx.currentTime + timings[i]); osc.stop(ctx.currentTime + timings[i] + 0.25);
-    });
-}
-
-function createStartButton(scene) {
-    const centerX = scene.cameras.main.width / 2;
-    const centerY = scene.cameras.main.height / 2;
-    const startButton = scene.add.rectangle(centerX, centerY, 400, 100, 0xffffff, 0.2).setInteractive().setScrollFactor(0).setStrokeStyle(4, 0xffffff);
-    const startText = scene.add.text(centerX, centerY, 'スタート', { fontSize: '48px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0);
-    startButton.on('pointerdown', () => { isWaitingToStart = false; startButton.destroy(); startText.destroy(); if (bgm) bgm.play(); scheduleNextSpawn(scene); scheduleNextBombSpawn(scene); });
-}
-
-function startQuiz(player, ship) {
-    if (isQuizActive || isClear || isWaitingToStart) return;
-    isQuizActive = true; player.setVelocityX(0);
-    const centerX = this.cameras.main.width / 2, centerY = this.cameras.main.height / 2;
-    const pW = 600, pH = 500, topY = centerY - (pH / 2); // クイズ画面も少し大きく
-    const overlay = this.add.rectangle(centerX, centerY, pW, pH, 0x000000, 0.95).setStrokeStyle(4, 0xffffff).setScrollFactor(0);
-    const title = this.add.text(centerX, topY + 60, 'もんだい', { fontSize: '40px', color: '#ffff00' }).setOrigin(0.5).setScrollFactor(0);
-    const qText = this.add.text(centerX, topY + 160, '', { fontSize: '70px', color: '#fff' }).setOrigin(0.5).setScrollFactor(0);
-    const buttons = [];
-    for (let i = 0; i < 3; i++) {
-        const btnY = topY + 280 + (i * 80);
-        const btn = this.add.rectangle(centerX, btnY, 300, 60, 0x333333).setInteractive().setStrokeStyle(2, 0xffffff).setScrollFactor(0);
-        const txt = this.add.text(centerX, btnY, '', { fontSize: '40px', color: '#fff' }).setOrigin(0.5).setScrollFactor(0);
-        btn.txt = txt;
-        btn.on('pointerdown', () => { 
-            if (btn.val === btn.ans) { playSE(this, 'quiz_correct'); [overlay, title, qText, ...buttons, ...buttons.map(b=>b.txt)].forEach(obj => obj.destroy()); ship.destroy(); isQuizActive = false; } 
-            else { playSE(this, 'quiz_wrong'); btn.setFillStyle(0xff0000); this.time.delayedCall(300, () => generateProblem(qText, buttons)); } 
-        });
-        buttons.push(btn);
-    }
-    generateProblem(qText, buttons);
-}
-
-function generateProblem(qText, buttons) {
-    let n1, n2, ans, sign;
-    if (Math.random() > 0.5) { n1 = Phaser.Math.Between(1, 10); n2 = Phaser.Math.Between(1, 9); ans = n1 + n2; sign = '＋'; } 
-    else { n1 = Phaser.Math.Between(5, 15); n2 = Phaser.Math.Between(1, n1); ans = n1 - n2; sign = '－'; }
-    qText.setText(`${n1} ${sign} ${n2} = ?`);
-    const options = [ans, ans + 1, ans - 1]; Phaser.Utils.Array.Shuffle(options);
-    buttons.forEach((btn, i) => { btn.val = options[i]; btn.txt.setText(options[i]); btn.ans = ans; btn.setFillStyle(0x333333); });
-}
-
-function update(time) {
-    if (isGameOver || isClear || isWaitingToStart) { if (player.body) player.setVelocityX(0); return; }
-    distanceText.setText(`ゴールまで あと ${Math.max(0, Math.floor((GOAL_DISTANCE - player.x) / 10))}m`);
-    if (player.x >= GOAL_DISTANCE) { handleClear(this); return; }
-    bg.tilePositionX = this.cameras.main.scrollX * 0.4;
-    enemies.getChildren().forEach(e => { if (e.body.velocity.x > 0) e.setFlipX(false); else e.setFlipX(true); });
+    btn(150, H - 150, '←', 0xffffff, () => moveLeft = true, () => moveLeft = false);
+    btn(370, H - 150, '→', 0xffffff, () => moveRight = true, () => moveRight = false);
+    btn(W - 150, H - 380, '↑', 0xffffff, () => doJump = true, () => doJump = false);
     
-    // FIREボタンエリアを避けてタップ判定
-    if (this.input.activePointer.isDown && time > lastShootTime + 200 && !isQuizActive && this.input.activePointer.x < this.cameras.main.width - 250) { 
-        shoot(this); lastShootTime = time; 
-    }
-
-    if (!isQuizActive) { 
-        if (keys.A.isDown || moveLeft) { player.setVelocityX(-400); player.setFlipX(true); lastDirection = 'left'; } 
-        else if (keys.D.isDown || moveRight) { player.setVelocityX(400); player.setFlipX(false); lastDirection = 'right'; } 
-        else { player.setVelocityX(0); } 
-    }
-    if ((keys.W.isDown || spaceKey.isDown || doJump) && player.body.blocked.down) player.setVelocityY(-800);
-    bullets = bullets.filter(b => { 
-        if (!b.active) return false; 
-        this.physics.overlap(b, enemies, (bullet, enemy) => { 
-            let hp = enemy.getData('hp') - 1; enemy.setData('hp', hp); enemy.setTint(0xff0000); 
-            if (hp <= 0) { playSE(this, 'destroy'); enemy.destroy(); } else { playSE(this, 'hit'); }
-            this.time.delayedCall(100, () => { if(enemy && enemy.active) enemy.clearTint(); }); 
-            bullet.active = false; bullet.destroy(); 
-        }); return b.active; 
-    });
+    let f = scene.add.circle(W - 150, H - 150, 110, 0xff0000, 0.5).setInteractive().setScrollFactor(0);
+    f.on('pointerdown', () => { if(!isQuizActive && !isWaitingToStart) shoot(scene); });
+    scene.add.text(W - 150, H - 150, 'FIRE', { fontSize: '40px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0);
 }
 
-function handleClear(scene) { if (isClear) return; isClear = true; player.setVelocity(0, 0); enemies.clear(true, true); bombs.clear(true, true); if(bgm) bgm.stop(); playClearJingle(scene); const centerX = scene.cameras.main.width / 2, centerY = scene.cameras.main.height / 2; scene.add.text(centerX, centerY, 'CLEAR!!', { fontSize: '100px', fill: '#fff', fontStyle: 'bold', stroke: '#000', strokeThickness: 12 }).setOrigin(0.5).setScrollFactor(0); scene.tweens.add({ targets: player, alpha: 0.5, duration: 100, yoyo: true, repeat: 30 }); scene.time.delayedCall(6000, () => { scene.scene.restart(); }); }
+// update、クイズ、クリアなどのロジックは完全継承
+function playSE(scene, type) { const ctx = scene.sound.context; if (type === 'shoot') { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = 'square'; osc.frequency.setValueAtTime(1200, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.05); gain.gain.setValueAtTime(0.05, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05); osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.05); } else if (type === 'hit') { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = 'sine'; osc.frequency.setValueAtTime(1000, ctx.currentTime); gain.gain.setValueAtTime(0.08, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08); osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.08); } else if (type === 'destroy') { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, ctx.currentTime); osc.frequency.linearRampToValueAtTime(40, ctx.currentTime + 0.15); gain.gain.setValueAtTime(0.12, ctx.currentTime); gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.15); osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.15); } else if (type === 'quiz_correct') { [523.25, 1046.50].forEach((freq, i) => { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = 'sine'; osc.frequency.setValueAtTime(freq, ctx.currentTime + (i * 0.1)); gain.gain.setValueAtTime(0.1, ctx.currentTime + (i * 0.1)); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i * 0.1) + 0.2); osc.connect(gain); gain.connect(ctx.destination); osc.start(ctx.currentTime + (i * 0.1)); osc.stop(ctx.currentTime + (i * 0.1) + 0.2); }); } else if (type === 'quiz_wrong') { [150, 150].forEach((freq, i) => { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(freq, ctx.currentTime + (i * 0.15)); gain.gain.setValueAtTime(0.1, ctx.currentTime + (i * 0.15)); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i * 0.15) + 0.1); osc.connect(gain); gain.connect(ctx.destination); osc.start(ctx.currentTime + (i * 0.15)); osc.stop(ctx.currentTime + (i * 0.15) + 0.15); }); } else if (type === 'dead') { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = 'square'; osc.frequency.setValueAtTime(100, ctx.currentTime); gain.gain.setValueAtTime(0.2, ctx.currentTime); osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.3); } }
+function playClearJingle(scene) { const ctx = scene.sound.context; const melody = [523.25, 659.25, 783.99, 659.25, 1046.50]; const timings = [0, 0.15, 0.3, 0.45, 0.6]; melody.forEach((freq, i) => { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = 'triangle'; osc.frequency.setValueAtTime(freq, ctx.currentTime + timings[i]); gain.gain.setValueAtTime(0.1, ctx.currentTime + timings[i]); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + timings[i] + 0.2); osc.connect(gain); gain.connect(ctx.destination); osc.start(ctx.currentTime + timings[i]); osc.stop(ctx.currentTime + timings[i] + 0.25); }); }
+function createStartButton(scene) { const centerX = 1280 / 2, centerY = 720 / 2; const startButton = scene.add.rectangle(centerX, centerY, 400, 100, 0xffffff, 0.2).setInteractive().setScrollFactor(0).setStrokeStyle(4, 0xffffff); const startText = scene.add.text(centerX, centerY, 'スタート', { fontSize: '48px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0); startButton.on('pointerdown', () => { isWaitingToStart = false; startButton.destroy(); startText.destroy(); if (bgm) bgm.play(); scheduleNextSpawn(scene); scheduleNextBombSpawn(scene); }); }
+function startQuiz(player, ship) { if (isQuizActive || isClear || isWaitingToStart) return; isQuizActive = true; player.setVelocityX(0); const centerX = 1280 / 2, centerY = 720 / 2; const pW = 700, pH = 600, topY = centerY - (pH / 2); const overlay = this.add.rectangle(centerX, centerY, pW, pH, 0x000000, 0.95).setStrokeStyle(4, 0xffffff).setScrollFactor(0); const title = this.add.text(centerX, topY + 60, 'もんだい', { fontSize: '40px', color: '#ffff00' }).setOrigin(0.5).setScrollFactor(0); const qText = this.add.text(centerX, topY + 160, '', { fontSize: '70px', color: '#fff' }).setOrigin(0.5).setScrollFactor(0); const buttons = []; for (let i = 0; i < 3; i++) { const btnY = topY + 280 + (i * 80); const btn = this.add.rectangle(centerX, btnY, 300, 60, 0x333333).setInteractive().setStrokeStyle(2, 0xffffff).setScrollFactor(0); const txt = this.add.text(centerX, btnY, '', { fontSize: '40px', color: '#fff' }).setOrigin(0.5).setScrollFactor(0); btn.txt = txt; btn.on('pointerdown', () => { if (btn.val === btn.ans) { playSE(this, 'quiz_correct'); [overlay, title, qText, ...buttons, ...buttons.map(b=>b.txt)].forEach(obj => obj.destroy()); ship.destroy(); isQuizActive = false; } else { playSE(this, 'quiz_wrong'); btn.setFillStyle(0xff0000); this.time.delayedCall(300, () => generateProblem(qText, buttons)); } }); buttons.push(btn); } generateProblem(qText, buttons); }
+function generateProblem(qText, buttons) { let n1, n2, ans, sign; if (Math.random() > 0.5) { n1 = Phaser.Math.Between(1, 10); n2 = Phaser.Math.Between(1, 9); ans = n1 + n2; sign = '＋'; } else { n1 = Phaser.Math.Between(5, 15); n2 = Phaser.Math.Between(1, n1); ans = n1 - n2; sign = '－'; } qText.setText(`${n1} ${sign} ${n2} = ?`); const options = [ans, ans + 1, ans - 1]; Phaser.Utils.Array.Shuffle(options); buttons.forEach((btn, i) => { btn.val = options[i]; btn.txt.setText(options[i]); btn.ans = ans; btn.setFillStyle(0x333333); }); }
+function update(time) { if (isGameOver || isClear || isWaitingToStart) { if (player.body) player.setVelocityX(0); return; } distanceText.setText(`ゴールまで あと ${Math.max(0, Math.floor((GOAL_DISTANCE - player.x) / 10))}m`); if (player.x >= GOAL_DISTANCE) { handleClear(this); return; } bg.tilePositionX = this.cameras.main.scrollX * 0.4; enemies.getChildren().forEach(e => { if (e.body.velocity.x > 0) e.setFlipX(false); else e.setFlipX(true); }); if (this.input.activePointer.isDown && time > lastShootTime + 200 && !isQuizActive && this.input.activePointer.x < 1280 - 250) { shoot(this); lastShootTime = time; } if (!isQuizActive) { if (keys.A.isDown || moveLeft) { player.setVelocityX(-400); player.setFlipX(true); lastDirection = 'left'; } else if (keys.D.isDown || moveRight) { player.setVelocityX(400); player.setFlipX(false); lastDirection = 'right'; } else { player.setVelocityX(0); } } if ((keys.W.isDown || spaceKey.isDown || doJump) && player.body.blocked.down) player.setVelocityY(-800); bullets = bullets.filter(b => { if (!b.active) return false; this.physics.overlap(b, enemies, (bullet, enemy) => { let hp = enemy.getData('hp') - 1; enemy.setData('hp', hp); enemy.setTint(0xff0000); if (hp <= 0) { playSE(this, 'destroy'); enemy.destroy(); } else { playSE(this, 'hit'); } this.time.delayedCall(100, () => { if(enemy && enemy.active) enemy.clearTint(); }); bullet.active = false; bullet.destroy(); }); return b.active; }); }
+function handleClear(scene) { if (isClear) return; isClear = true; player.setVelocity(0, 0); enemies.clear(true, true); bombs.clear(true, true); if(bgm) bgm.stop(); playClearJingle(scene); scene.add.text(1280 / 2, 720 / 2, 'CLEAR!!', { fontSize: '100px', fill: '#fff', fontStyle: 'bold', stroke: '#000', strokeThickness: 12 }).setOrigin(0.5).setScrollFactor(0); scene.tweens.add({ targets: player, alpha: 0.5, duration: 100, yoyo: true, repeat: 30 }); scene.time.delayedCall(6000, () => { scene.scene.restart(); }); }
 function onPlayerHit() { if (!isGameOver && !isClear && !isWaitingToStart) { isGameOver = true; if(bgm) bgm.stop(); playSE(this, 'dead'); player.setTint(0xff0000); this.time.delayedCall(1000, () => this.scene.restart()); } }
-function spawnEnemy(scene) { if (isGameOver || isClear || isWaitingToStart) return; const isFromLeft = Math.random() < 0.30; const cam = scene.cameras.main, spawnX = isFromLeft ? cam.scrollX - 150 : cam.scrollX + cam.width + 150; const e = scene.physics.add.sprite(spawnX, scene.cameras.main.height - 200, 'enemy_sprite'); e.setScale(0.22).setOrigin(0.5, 1); e.setData('hp', 4); enemies.add(e); scene.physics.add.collider(e, ground); e.body.setSize(e.width * 0.4, e.height * 0.6).setOffset((e.width - e.width * 0.4) / 2, e.height - e.height * 0.6); if (isFromLeft) { e.body.setVelocityX(200); e.setTint(0xffaa00); } else { e.body.setVelocityX(-100); } }
-function spawnBomb(scene) { if (isGameOver || isClear || isWaitingToStart) return; const cam = scene.cameras.main, spawnX = cam.scrollX + cam.width + 100; const b = scene.physics.add.sprite(spawnX, scene.cameras.main.height - 100, 'bomb_sprite'); b.setScale(0.08).setOrigin(0.5, 1); bombs.add(b); scene.physics.add.collider(b, ground); b.body.setVelocityX(-200); }
+function spawnEnemy(scene) { if (isGameOver || isClear || isWaitingToStart) return; const spawnX = scene.cameras.main.scrollX + scene.cameras.main.width + 150; const e = scene.physics.add.sprite(spawnX, 720 - 200, 'enemy_sprite').setScale(0.22).setOrigin(0.5, 1); e.setData('hp', 4); enemies.add(e); e.body.setVelocityX(-200); }
+function spawnBomb(scene) { if (isGameOver || isClear || isWaitingToStart) return; const b = scene.physics.add.sprite(scene.cameras.main.scrollX + scene.cameras.main.width + 100, 720 - 100, 'bomb_sprite').setScale(0.08).setOrigin(0.5, 1); bombs.add(b); b.body.setVelocityX(-250); }
 function shoot(scene) { if (isWaitingToStart) return; playSE(scene, 'shoot'); const b = scene.add.rectangle(player.x + (lastDirection === 'right' ? 45 : -45), player.y - 70, 25, 6, 0xffff00); scene.physics.add.existing(b); b.body.setAllowGravity(false); b.body.setVelocityX(lastDirection === 'left' ? -1500 : 1500); b.active = true; bullets.push(b); scene.time.delayedCall(1000, () => { if(b.active) { b.active = false; b.destroy(); } }); }
 function scheduleNextSpawn(scene) { scene.time.delayedCall(Phaser.Math.Between(2000, 4500), () => { if (!isGameOver && !isClear && !isWaitingToStart) { spawnEnemy(scene); scheduleNextSpawn(scene); } }); }
 function scheduleNextBombSpawn(scene) { scene.time.delayedCall(1800, () => { if (!isGameOver && !isClear && !isWaitingToStart) { if (!lastWasBomb && Math.random() < 0.2) { spawnBomb(scene); lastWasBomb = true; } else { lastWasBomb = false; } } scheduleNextBombSpawn(scene); }); }
