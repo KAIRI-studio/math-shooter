@@ -25,14 +25,17 @@
 </style>
 <body>
 <script>
+// スマホかPCかを判定するフラグを最初に追加
+const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+
 const config = {
     type: Phaser.AUTO,
     scale: {
-        mode: Phaser.Scale.RESIZE, // 枠のサイズ変更に追従
-        parent: document.body,    // 親要素（body）のサイズを基準にする
-        width: '100%',
-        height: '100%',
-        autoCenter: Phaser.Scale.CENTER_BOTH
+        // PCなら以前の「良い感じ」を維持するRESIZE、スマホなら枠に収めるFIT
+        mode: isMobile ? Phaser.Scale.FIT : Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: window.innerWidth,
+        height: window.innerHeight
     },
     input: { activePointers: 3 },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
@@ -115,57 +118,39 @@ function create() {
     this.physics.add.collider(enemies, ground);
     this.physics.add.collider(bombs, ground); 
 
-    // create関数の最後の方に、これを入れてください
-const zoomX = this.scale.width / 1280; // 基準の横幅を1280とする
-const zoomY = this.scale.height / 720; // 基準の縦幅を720とする
-const finalZoom = Math.min(zoomX, zoomY, 1); // 1倍（PC）を超えないようにしつつ、スマホでは引く
-
-this.cameras.main.setZoom(finalZoom);
+// スマホの時だけ、画面に合わせてカメラを引く
+if (isMobile) {
+    const zoomX = this.scale.width / 1280; 
+    const zoomY = this.scale.height / 720;
+    const finalZoom = Math.min(zoomX, zoomY, 1);
+    this.cameras.main.setZoom(finalZoom);
+}
 
 }
 
 function createTouchControls(scene) {
-    // 画面の実際のピクセルサイズを取得
+    // scene.scaleから最新のサイズを拾うのが一番正確です
     const W = scene.scale.width;
     const H = scene.scale.height;
     
-    // カメラのズームの影響を受けないようにする設定
     const btn = (x, y, txt, start, end) => {
-        let c = scene.add.circle(x, y, 60, 0xffffff, 0.2)
-            .setInteractive()
-            .setScrollFactor(0)
-            .setDepth(5000); // 誰よりも手前に
-        
+        let c = scene.add.circle(x, y, 60, 0xffffff, 0.2).setInteractive().setScrollFactor(0).setDepth(10000);
         c.on('pointerdown', start);
         c.on('pointerup', end);
         c.on('pointerout', end);
-        
-        let t = scene.add.text(x, y, txt, { fontSize: '40px' })
-            .setOrigin(0.5)
-            .setScrollFactor(0)
-            .setDepth(5001);
-            
-        // 【重要】カメラがズームアウトしても、ボタンは元のサイズを維持する
-        const currentZoom = scene.cameras.main.zoom;
-        c.setScale(1 / currentZoom);
-        t.setScale(1 / currentZoom);
+        scene.add.text(x, y, txt, { fontSize: '40px' }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
     };
 
-    // 以下、座標計算（H-100などはカメラズームに関係なく画面の端になります）
-    btn(120, H - 100, '←', () => moveLeft = true, () => moveLeft = false);
-    btn(280, H - 100, '→', () => moveRight = true, () => moveRight = false);
-    btn(W - 280, H - 100, '↑', () => doJump = true, () => doJump = false); 
+    // 左側に移動
+    btn(100, H - 100, '←', () => moveLeft = true, () => moveLeft = false);
+    btn(250, H - 100, '→', () => moveRight = true, () => moveRight = false);
+
+    // 右側にジャンプ(↑)と攻撃(FIRE)
+    btn(W - 250, H - 100, '↑', () => doJump = true, () => doJump = false); 
     
-    // FIREボタン（赤）
-    let fireBtn = scene.add.circle(W - 120, H - 100, 75, 0xff0000, 0.4)
-        .setInteractive().setScrollFactor(0).setDepth(5000);
-    fireBtn.on('pointerdown', () => { if(!isQuizActive && !isWaitingToStart) shoot(scene); });
-    let fireText = scene.add.text(W - 120, H - 100, 'FIRE', { fontSize: '28px', fontStyle: 'bold' })
-        .setOrigin(0.5).setScrollFactor(0).setDepth(5001);
-    
-    const currentZoom = scene.cameras.main.zoom;
-    fireBtn.setScale(1 / currentZoom);
-    fireText.setScale(1 / currentZoom);
+    let f = scene.add.circle(W - 100, H - 100, 75, 0xff0000, 0.4).setInteractive().setScrollFactor(0).setDepth(10000);
+    f.on('pointerdown', () => { if(!isQuizActive && !isWaitingToStart) shoot(scene); });
+    scene.add.text(W - 100, H - 100, 'FIRE', { fontSize: '24px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
 }
 
 function playSE(scene, type) {
@@ -303,20 +288,9 @@ function handleClear(scene) {
     if (isClear) return;
     isClear = true;
     if(bgm) bgm.stop();
-
-    // 中央に文字を表示（動的な座標 W/2, H/2 を使うのが安全です）
-    const W = scene.scale.width;
-    const H = scene.scale.height;
+    // （中略：テキスト表示など）
     
-    scene.add.text(W / 2, H / 2, 'CLEAR!!', { 
-        fontSize: '100px', 
-        fontStyle: 'bold',
-        fill: '#fff',
-        stroke: '#000',
-        strokeThickness: 8
-    }).setOrigin(0.5).setScrollFactor(0);
-
-    // 5秒後にページごとリロードして、画面サイズを完璧な状態で作り直す
+    // ここを書き換え：5秒後にリロード
     scene.time.delayedCall(5000, () => {
         window.location.reload(); 
     });
@@ -329,8 +303,8 @@ function onPlayerHit() {
         if(bgm) bgm.stop();
         playSE(this, 'dead');
         player.setTint(0xff0000);
+        // ここを書き換え：スマホの画面崩れをリセットするためリロードする
         this.time.delayedCall(1000, () => {
-            // これでページごと作り直して、スマホのズレをリセットします
             window.location.reload(); 
         });
     }
