@@ -23,13 +23,13 @@
 const config = {
     type: Phaser.AUTO,
     scale: {
-        mode: Phaser.Scale.FIT,
+        mode: Phaser.Scale.FIT, // 常に画面内に収める
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: window.innerWidth,
-        height: window.innerHeight
+        width: 1280, // 基準サイズを固定することで、リスタート時の崩れを防ぎます
+        height: 720
     },
     input: {
-        activePointers: 3 // ここを追加！これで3本指まで同時に反応します
+        activePointers: 3 // これでマルチタッチ（同時押し）が有効になります
     },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
@@ -113,27 +113,30 @@ function create() {
 }
 
 function createTouchControls(scene) {
-    const W = window.innerWidth;
-    const H = window.innerHeight;
+    // 基準サイズ(1280x720)に基づいた配置
+    const W = 1280;
+    const H = 720;
     
     const btn = (x, y, txt, start, end) => {
-        let c = scene.add.circle(x, y, 60, 0xffffff, 0.2).setInteractive().setScrollFactor(0).setDepth(1000);
-        // 指が離れた時だけでなく、枠外に出た時も止まるように修正
+        let c = scene.add.circle(x, y, 60, 0xffffff, 0.2).setInteractive().setScrollFactor(0).setDepth(2000);
         c.on('pointerdown', start);
         c.on('pointerup', end);
         c.on('pointerout', end);
+        // テキストもボタンと同じ位置に
+        scene.add.text(x, y, txt, { fontSize: '40px' }).setOrigin(0.5).setScrollFactor(0).setDepth(2001);
     };
 
     // 左側に移動ボタン
     btn(100, H - 100, '←', () => moveLeft = true, () => moveLeft = false);
     btn(250, H - 100, '→', () => moveRight = true, () => moveRight = false);
 
-    // 右側にジャンプと攻撃
-    btn(W - 250, H - 100, '↑', () => doJump = true, () => doJump = false); // ジャンプ
+    // 右側にジャンプ(↑)と攻撃(FIRE)
+    btn(W - 250, H - 100, '↑', () => doJump = true, () => doJump = false); // 右から2番目
     
-    let f = scene.add.circle(W - 100, H - 100, 70, 0xff0000, 0.4).setInteractive().setScrollFactor(0).setDepth(1000);
+    // FIREボタンは赤く目立たせる
+    let f = scene.add.circle(W - 100, H - 100, 75, 0xff0000, 0.4).setInteractive().setScrollFactor(0).setDepth(2000);
     f.on('pointerdown', () => { if(!isQuizActive && !isWaitingToStart) shoot(scene); });
-    scene.add.text(W - 100, H - 100, 'FIRE', { fontSize: '28px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(1001);
+    scene.add.text(W - 100, H - 100, 'FIRE', { fontSize: '28px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(2001);
 }
 
 
