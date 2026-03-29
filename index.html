@@ -25,17 +25,18 @@
 </style>
 <body>
 <script>
-// スマホかPCかを判定するフラグを最初に追加
+// スマホかPCかを判定
 const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
 
 const config = {
     type: Phaser.AUTO,
     scale: {
-        // PCなら以前の「良い感じ」を維持するRESIZE、スマホなら枠に収めるFIT
+        // PC版：RESIZE（今までの最高な状態）
+        // スマホ版：FIT（画面内にきっちり収める）
         mode: isMobile ? Phaser.Scale.FIT : Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: window.innerWidth,
-        height: window.innerHeight
+        width: isMobile ? 1280 : window.innerWidth, // スマホは基準サイズを固定
+        height: isMobile ? 720 : window.innerHeight
     },
     input: { activePointers: 3 },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
@@ -65,32 +66,43 @@ function preload() {
 function create() {
     isGameOver = false; isQuizActive = false; isClear = false; isWaitingToStart = true;
     bullets = []; 
-    this.physics.world.setBounds(0, 0, WORLD_WIDTH, window.innerHeight);
 
-    bg = this.add.tileSprite(0, window.innerHeight, WORLD_WIDTH, 1500, 'background');
+    // ★ 修正1: 画面の幅(W)と高さ(H)を取得
+    const W = this.scale.width;
+    const H = this.scale.height;
+
+    // ★ 修正2: 世界の広さをHに合わせる
+    this.physics.world.setBounds(0, 0, WORLD_WIDTH, H);
+
+    // ★ 修正3: 背景を画面の一番下(H)に固定
+    bg = this.add.tileSprite(0, H, WORLD_WIDTH, 1500, 'background');
     bg.setOrigin(0, 1).setScrollFactor(0);
 
+    // ★ 修正4: 地面を画面の一番下(H)に配置
     const GROUND_HEIGHT = 40;
-    ground = this.add.rectangle(WORLD_WIDTH / 2, window.innerHeight - (GROUND_HEIGHT / 2), WORLD_WIDTH, GROUND_HEIGHT, 0xaaaaaa);
+    ground = this.add.rectangle(WORLD_WIDTH / 2, H - (GROUND_HEIGHT / 2), WORLD_WIDTH, GROUND_HEIGHT, 0xaaaaaa);
     this.physics.add.existing(ground, true);
 
-    const goalLine = this.add.rectangle(GOAL_DISTANCE, window.innerHeight / 2, 20, window.innerHeight, 0xff0000, 0.5);
-    this.add.text(GOAL_DISTANCE, window.innerHeight / 2 - 100, 'GOAL', { fontSize: '60px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5);
+    const goalLine = this.add.rectangle(GOAL_DISTANCE, H / 2, 20, H, 0xff0000, 0.5);
+    this.add.text(GOAL_DISTANCE, H / 2 - 100, 'GOAL', { fontSize: '60px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5);
 
-    player = this.physics.add.sprite(300, window.innerHeight - 100, 'player_sprite');
+    // ★ 修正5: プレイヤーを地面(H)の上に立たせる
+    player = this.physics.add.sprite(300, H - 100, 'player_sprite');
     player.setScale(0.15).setOrigin(0.5, 1);
     player.body.setCollideWorldBounds(true);
     player.body.setSize(player.width * 0.6, player.height * 0.9).setOffset(player.width * 0.2, player.height * 0.1);
 
-    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, window.innerHeight);
+    // ★ 修正6: カメラの範囲もHに合わせる
+    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, H);
     this.cameras.main.startFollow(player, true, 0.1, 0.1);
 
     enemies = this.physics.add.group();
     bombs = this.physics.add.group();
     shipGroup = this.physics.add.staticGroup();
 
+    // ★ 修正7: 宇宙船(クイズ)も地面(H)の上に置く
     for(let x = 2000; x < GOAL_DISTANCE; x += 2000) {
-        const s = this.add.sprite(x, window.innerHeight - 20, 'ship_sprite');
+        const s = this.add.sprite(x, H - 20, 'ship_sprite');
         s.setScale(0.5).setOrigin(0, 1);
         this.physics.add.existing(s, true);
         const shipHitW = s.width * 0.45;
@@ -106,7 +118,11 @@ function create() {
     bgm = this.sound.add('main_bgm', { volume: 0.15, loop: true });
 
     createStartButton(this);
-    if (this.sys.game.device.input.touch) { createTouchControls(this); }
+
+    // ★ 修正8: ここもisMobileで判定（前回追加した部分）
+    if (isMobile) { 
+        createTouchControls(this); 
+    }
 
     keys = this.input.keyboard.addKeys('W,A,S,D');
     spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
@@ -117,15 +133,6 @@ function create() {
     this.physics.add.collider(player, ground);
     this.physics.add.collider(enemies, ground);
     this.physics.add.collider(bombs, ground); 
-
-// スマホの時だけ、画面に合わせてカメラを引く
-if (isMobile) {
-    const zoomX = this.scale.width / 1280; 
-    const zoomY = this.scale.height / 720;
-    const finalZoom = Math.min(zoomX, zoomY, 1);
-    this.cameras.main.setZoom(finalZoom);
-}
-
 }
 
 function createTouchControls(scene) {
@@ -310,18 +317,56 @@ function onPlayerHit() {
     }
 }
 
-function spawnEnemy(scene) { if (isGameOver || isClear || isWaitingToStart) return; const isFromLeft = Math.random() < 0.30; const cam = scene.cameras.main, spawnX = isFromLeft ? cam.scrollX - 150 : cam.scrollX + cam.width + 150; const e = scene.physics.add.sprite(spawnX, window.innerHeight - 200, 'enemy_sprite'); e.setScale(0.22).setOrigin(0.5, 1); e.setData('hp', 4); enemies.add(e); scene.physics.add.collider(e, ground); e.body.setSize(e.width * 0.4, e.height * 0.6).setOffset((e.width - e.width * 0.4) / 2, e.height - e.height * 0.6); if (isFromLeft) { e.body.setVelocityX(200); e.setTint(0xffaa00); } else { e.body.setVelocityX(-100); } }
 
-// 修正：爆弾の出現ロジックをマイルドに
+
+function spawnEnemy(scene) { 
+    if (isGameOver || isClear || isWaitingToStart) return; 
+
+    // ★ 画面の高さ(H)を動的に取得
+    const H = scene.scale.height;
+    const isFromLeft = Math.random() < 0.30; 
+    const cam = scene.cameras.main;
+    const spawnX = isFromLeft ? cam.scrollX - 150 : cam.scrollX + cam.width + 150; 
+
+    // ★ Hを使って地面の上に配置
+    const e = scene.physics.add.sprite(spawnX, H - 100, 'enemy_sprite'); 
+    e.setScale(0.22).setOrigin(0.5, 1); 
+    e.setData('hp', 4); 
+    enemies.add(e); 
+    
+    scene.physics.add.collider(e, ground); 
+    
+    e.body.setSize(e.width * 0.4, e.height * 0.6).setOffset((e.width - e.width * 0.4) / 2, e.height - e.height * 0.6); 
+    
+    if (isFromLeft) { 
+        e.body.setVelocityX(200); 
+        e.setTint(0xffaa00); 
+    } else { 
+        e.body.setVelocityX(-100); 
+    } 
+}
+
+
+
 function spawnBomb(scene) { 
     if (isGameOver || isClear || isWaitingToStart) return; 
-    const cam = scene.cameras.main, spawnX = cam.scrollX + cam.width + 100; 
-    const b = scene.physics.add.sprite(spawnX, window.innerHeight - 100, 'bomb_sprite'); 
+
+    // ★ 画面の高さ(H)を動的に取得
+    const H = scene.scale.height;
+    const cam = scene.cameras.main;
+    const spawnX = cam.scrollX + cam.width + 100; 
+
+    // ★ Hを使って地面のすぐ上に配置
+    const b = scene.physics.add.sprite(spawnX, H - 40, 'bomb_sprite'); 
     b.setScale(0.08).setOrigin(0.5, 1); 
     bombs.add(b); 
+    
     scene.physics.add.collider(b, ground); 
     b.body.setVelocityX(-200); 
 }
+
+
+
 
 function scheduleNextSpawn(scene) { scene.time.delayedCall(Phaser.Math.Between(2000, 4500), () => { if (!isGameOver && !isClear && !isWaitingToStart) { spawnEnemy(scene); scheduleNextSpawn(scene); } }); }
 
