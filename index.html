@@ -114,28 +114,58 @@ function create() {
     this.physics.add.collider(player, ground);
     this.physics.add.collider(enemies, ground);
     this.physics.add.collider(bombs, ground); 
+
+    // create関数の最後の方に、これを入れてください
+const zoomX = this.scale.width / 1280; // 基準の横幅を1280とする
+const zoomY = this.scale.height / 720; // 基準の縦幅を720とする
+const finalZoom = Math.min(zoomX, zoomY, 1); // 1倍（PC）を超えないようにしつつ、スマホでは引く
+
+this.cameras.main.setZoom(finalZoom);
+
 }
 
 function createTouchControls(scene) {
-    // scale.width/heightを使うのが一番正確です
+    // 画面の実際のピクセルサイズを取得
     const W = scene.scale.width;
     const H = scene.scale.height;
     
+    // カメラのズームの影響を受けないようにする設定
     const btn = (x, y, txt, start, end) => {
-        let c = scene.add.circle(x, y, 60, 0xffffff, 0.2).setInteractive().setScrollFactor(0).setDepth(2000);
+        let c = scene.add.circle(x, y, 60, 0xffffff, 0.2)
+            .setInteractive()
+            .setScrollFactor(0)
+            .setDepth(5000); // 誰よりも手前に
+        
         c.on('pointerdown', start);
         c.on('pointerup', end);
         c.on('pointerout', end);
-        scene.add.text(x, y, txt, { fontSize: '40px' }).setOrigin(0.5).setScrollFactor(0).setDepth(2001);
+        
+        let t = scene.add.text(x, y, txt, { fontSize: '40px' })
+            .setOrigin(0.5)
+            .setScrollFactor(0)
+            .setDepth(5001);
+            
+        // 【重要】カメラがズームアウトしても、ボタンは元のサイズを維持する
+        const currentZoom = scene.cameras.main.zoom;
+        c.setScale(1 / currentZoom);
+        t.setScale(1 / currentZoom);
     };
 
-    btn(100, H - 80, '←', () => moveLeft = true, () => moveLeft = false);
-    btn(250, H - 80, '→', () => moveRight = true, () => moveRight = false);
-    btn(W - 250, H - 80, '↑', () => doJump = true, () => doJump = false); 
+    // 以下、座標計算（H-100などはカメラズームに関係なく画面の端になります）
+    btn(120, H - 100, '←', () => moveLeft = true, () => moveLeft = false);
+    btn(280, H - 100, '→', () => moveRight = true, () => moveRight = false);
+    btn(W - 280, H - 100, '↑', () => doJump = true, () => doJump = false); 
     
-    let f = scene.add.circle(W - 100, H - 80, 75, 0xff0000, 0.4).setInteractive().setScrollFactor(0).setDepth(2000);
-    f.on('pointerdown', () => { if(!isQuizActive && !isWaitingToStart) shoot(scene); });
-    scene.add.text(W - 100, H - 80, 'FIRE', { fontSize: '28px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(2001);
+    // FIREボタン（赤）
+    let fireBtn = scene.add.circle(W - 120, H - 100, 75, 0xff0000, 0.4)
+        .setInteractive().setScrollFactor(0).setDepth(5000);
+    fireBtn.on('pointerdown', () => { if(!isQuizActive && !isWaitingToStart) shoot(scene); });
+    let fireText = scene.add.text(W - 120, H - 100, 'FIRE', { fontSize: '28px', fontStyle: 'bold' })
+        .setOrigin(0.5).setScrollFactor(0).setDepth(5001);
+    
+    const currentZoom = scene.cameras.main.zoom;
+    fireBtn.setScale(1 / currentZoom);
+    fireText.setScale(1 / currentZoom);
 }
 
 function playSE(scene, type) {
