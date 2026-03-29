@@ -5,22 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>KAIRI Studio - Math Shooter</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
-    <style> 
-        body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: none; } 
-        canvas { display: block; } 
-    </style>
+<style> 
+    body { 
+        margin: 0; padding: 0; overflow: hidden; background: #000; 
+        /* スマホのバーを考慮した高さ指定 */
+        height: 100vh; height: -webkit-fill-available; 
+        display: flex; align-items: center; justify-content: center;
+    } 
+    canvas { display: block; } 
+</style>
 </head>
 <body>
 <script>
 const config = {
     type: Phaser.AUTO,
-    // --- ここから追加：PCの挙動を維持しつつスマホで画面に収める設定 ---
     scale: {
-        mode: Phaser.Scale.RESIZE, // 画面サイズ変更に追従
-        width: window.innerWidth,
-        height: window.innerHeight,
+        /* スマホの表示領域に合わせて自動でリスケールする設定 */
+        mode: Phaser.Scale.FIT, 
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        /* パソコン版の基準サイズを1280x720（標準的な比率）に設定 */
+        /* これにより、スマホでもこの比率を維持したまま縮小されます */
+        width: 1280, 
+        height: 720
     },
-    // --- ここまで ---
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
