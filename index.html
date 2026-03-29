@@ -26,17 +26,13 @@
 const config = {
     type: Phaser.AUTO,
     scale: {
-        // FITではなくENVELOPを使うことで、画面いっぱいに広げつつ、
-        // あなたの「完全版」の比率を維持します。
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-        // ここを「固定値」にすることで、スマホが勝手にズームするのを防ぎます
-        width: 1280, 
-        height: 720
+        // RESIZEモードこそが、PCで「あの最高なサイズ感」を出す唯一のモードです
+        mode: Phaser.Scale.RESIZE,
+        parent: document.body,
+        width: '100%',
+        height: '100%'
     },
-    input: {
-        activePointers: 3 // マルチタッチ用
-    },
+    input: { activePointers: 3 },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
@@ -119,9 +115,9 @@ function create() {
 }
 
 function createTouchControls(scene) {
-    // その時の「生の画面サイズ」を取得
-    const W = scene.cameras.main.width;
-    const H = scene.cameras.main.height;
+    // 実行瞬間の「生の画面幅と高さ」を取得。これがズレ防止の鍵です。
+    const W = scene.scale.width;
+    const H = scene.scale.height;
     
     const btn = (x, y, txt, start, end) => {
         let c = scene.add.circle(x, y, 60, 0xffffff, 0.2).setInteractive().setScrollFactor(0).setDepth(2000);
@@ -136,7 +132,6 @@ function createTouchControls(scene) {
     btn(250, H - 100, '→', () => moveRight = true, () => moveRight = false);
 
     // 右下：ジャンプ(↑)と攻撃(FIRE)
-    // 画面の幅(W)から引くことで、必ず右側に寄ります
     btn(W - 250, H - 100, '↑', () => doJump = true, () => doJump = false); 
     
     let f = scene.add.circle(W - 100, H - 100, 75, 0xff0000, 0.4).setInteractive().setScrollFactor(0).setDepth(2000);
@@ -280,12 +275,22 @@ function handleClear(scene) {
     if (isClear) return;
     isClear = true;
     if(bgm) bgm.stop();
-    scene.add.text(scene.cameras.main.centerX, scene.cameras.main.centerY, 'CLEAR!!', { 
-        fontSize: '100px', fontStyle: 'bold' 
-    }).setOrigin(0.5).setScrollFactor(0);
+
+    // 中央に文字を表示（動的な座標 W/2, H/2 を使うのが安全です）
+    const W = scene.scale.width;
+    const H = scene.scale.height;
     
-    this.time.delayedCall(5000, () => {
-        window.location.reload(); // ページをリロードして初期化
+    scene.add.text(W / 2, H / 2, 'CLEAR!!', { 
+        fontSize: '100px', 
+        fontStyle: 'bold',
+        fill: '#fff',
+        stroke: '#000',
+        strokeThickness: 8
+    }).setOrigin(0.5).setScrollFactor(0);
+
+    // 5秒後にページごとリロードして、画面サイズを完璧な状態で作り直す
+    scene.time.delayedCall(5000, () => {
+        window.location.reload(); 
     });
 }
 
@@ -296,8 +301,8 @@ function onPlayerHit() {
         if(bgm) bgm.stop();
         playSE(this, 'dead');
         player.setTint(0xff0000);
-        // scene.restart() ではなく、ページそのものをリロードする
         this.time.delayedCall(1000, () => {
+            // これでページごと作り直して、スマホのズレをリセットします
             window.location.reload(); 
         });
     }
