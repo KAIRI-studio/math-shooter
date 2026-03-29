@@ -23,15 +23,15 @@
 const config = {
     type: Phaser.AUTO,
     scale: {
-        mode: Phaser.Scale.FIT, // これがスマホで画面に収める魔法の1行です
+        mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
         width: window.innerWidth,
         height: window.innerHeight
     },
-    physics: { 
-        default: 'arcade', 
-        arcade: { gravity: { y: 1500 }, debug: false } 
+    input: {
+        activePointers: 3 // ここを追加！これで3本指まで同時に反応します
     },
+    physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
 
@@ -115,18 +115,27 @@ function create() {
 function createTouchControls(scene) {
     const W = window.innerWidth;
     const H = window.innerHeight;
+    
     const btn = (x, y, txt, start, end) => {
-        let c = scene.add.circle(x, y, 45, 0xffffff, 0.2).setInteractive().setScrollFactor(0);
-        c.on('pointerdown', start); c.on('pointerup', end); c.on('pointerout', end);
-        scene.add.text(x, y, txt, { fontSize: '40px' }).setOrigin(0.5).setScrollFactor(0);
+        let c = scene.add.circle(x, y, 60, 0xffffff, 0.2).setInteractive().setScrollFactor(0).setDepth(1000);
+        // 指が離れた時だけでなく、枠外に出た時も止まるように修正
+        c.on('pointerdown', start);
+        c.on('pointerup', end);
+        c.on('pointerout', end);
     };
-    btn(80, H - 80, '←', () => moveLeft = true, () => moveLeft = false);
-    btn(180, H - 80, '→', () => moveRight = true, () => moveRight = false);
-    btn(W - 80, H - 180, '↑', () => doJump = true, () => doJump = false);
-    let f = scene.add.circle(W - 80, H - 80, 55, 0xff0000, 0.4).setInteractive().setScrollFactor(0);
+
+    // 左側に移動ボタン
+    btn(100, H - 100, '←', () => moveLeft = true, () => moveLeft = false);
+    btn(250, H - 100, '→', () => moveRight = true, () => moveRight = false);
+
+    // 右側にジャンプと攻撃
+    btn(W - 250, H - 100, '↑', () => doJump = true, () => doJump = false); // ジャンプ
+    
+    let f = scene.add.circle(W - 100, H - 100, 70, 0xff0000, 0.4).setInteractive().setScrollFactor(0).setDepth(1000);
     f.on('pointerdown', () => { if(!isQuizActive && !isWaitingToStart) shoot(scene); });
-    scene.add.text(W - 80, H - 80, 'FIRE', { fontSize: '24px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0);
+    scene.add.text(W - 100, H - 100, 'FIRE', { fontSize: '28px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(1001);
 }
+
 
 function playSE(scene, type) {
     const ctx = scene.sound.context;
