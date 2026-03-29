@@ -2,17 +2,25 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>KAIRI Studio - Math Shooter</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
-    <style> body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: none; } canvas { display: block; } </style>
+    <style> 
+        body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: none; } 
+        canvas { display: block; } 
+    </style>
 </head>
 <body>
 <script>
 const config = {
     type: Phaser.AUTO,
-    width: window.innerWidth,
-    height: window.innerHeight,
+    // --- ここから追加：PCの挙動を維持しつつスマホで画面に収める設定 ---
+    scale: {
+        mode: Phaser.Scale.RESIZE, // 画面サイズ変更に追従
+        width: window.innerWidth,
+        height: window.innerHeight,
+    },
+    // --- ここまで ---
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
@@ -22,11 +30,10 @@ let player, enemies, bombs, bullets = [], shipGroup, keys, spaceKey, ground, bg;
 let isGameOver = false, isQuizActive = false, isClear = false, isWaitingToStart = true;
 let distanceText, bgm; 
 let lastDirection = 'right', lastShootTime = 0;
-let lastWasBomb = false; 
+let lastWasBomb = false;
 const WORLD_WIDTH = 15000; 
 const GOAL_DISTANCE = 10000; 
 
-// 【スマホ用】変数は追加しますが、既存ロジックは変えません
 let moveLeft = false, moveRight = false, doJump = false;
 
 function preload() {
@@ -39,6 +46,7 @@ function preload() {
 }
 
 function create() {
+    // --- PC版と全く同じ初期化 ---
     isGameOver = false; isQuizActive = false; isClear = false; isWaitingToStart = true;
     bullets = []; 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, window.innerHeight);
@@ -82,9 +90,8 @@ function create() {
     bgm = this.sound.add('main_bgm', { volume: 0.15, loop: true });
 
     createStartButton(this);
-    
-    // 【スマホ対応】あなたのボタン生成関数を活かしつつ、確実に描画
-    if (this.sys.game.device.input.touch || true) { createTouchControls(this); }
+    // タッチデバイスの時だけボタンを出す（PCでは出さない）
+    if (this.sys.game.device.input.touch) { createTouchControls(this); }
 
     keys = this.input.keyboard.addKeys('W,A,S,D');
     spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
@@ -101,36 +108,91 @@ function createTouchControls(scene) {
     const W = window.innerWidth;
     const H = window.innerHeight;
     const btn = (x, y, txt, start, end) => {
-        let c = scene.add.circle(x, y, 60, 0xffffff, 0.15).setInteractive().setScrollFactor(0).setDepth(100);
+        // ボタンが背景に埋もれないよう setDepth(100) を追加
+        let c = scene.add.circle(x, y, 50, 0xffffff, 0.2).setInteractive().setScrollFactor(0).setDepth(100);
         c.on('pointerdown', start); c.on('pointerup', end); c.on('pointerout', end);
-        scene.add.text(x, y, txt, { fontSize: '40px', color: '#fff' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+        scene.add.text(x, y, txt, { fontSize: '40px' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
     };
-    btn(80, H - 100, '←', () => moveLeft = true, () => moveLeft = false);
-    btn(200, H - 100, '→', () => moveRight = true, () => moveRight = false);
-    btn(W - 100, H - 220, '↑', () => doJump = true, () => doJump = false);
-    let f = scene.add.circle(W - 100, H - 100, 70, 0xff0000, 0.3).setInteractive().setScrollFactor(0).setDepth(100);
+    btn(80, H - 80, '←', () => moveLeft = true, () => moveLeft = false);
+    btn(180, H - 80, '→', () => moveRight = true, () => moveRight = false);
+    btn(W - 80, H - 180, '↑', () => doJump = true, () => doJump = false);
+    let f = scene.add.circle(W - 80, H - 80, 60, 0xff0000, 0.4).setInteractive().setScrollFactor(0).setDepth(100);
     f.on('pointerdown', () => { if(!isQuizActive && !isWaitingToStart) shoot(scene); });
-    scene.add.text(W - 100, H - 100, 'FIRE', { fontSize: '28px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+    scene.add.text(W - 80, H - 80, 'FIRE', { fontSize: '24px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
 }
 
-// ※SEとJingleの関数はあなたの「完全版」と同一のため中略（実際には全て含まれています）
-function playSE(scene, type) { /* ...あなたのロジック... */
+// --- これ以降、SE, Quiz, Update 等はあなたの「完全版」コードを1文字も変えずにそのまま繋げてください ---
+// (容量の関係で以下略しますが、あなたの元のコードをそのまま貼り付ければ動作します)
+
+function playSE(scene, type) {
     const ctx = scene.sound.context;
-    if (type === 'shoot') { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = 'square'; osc.frequency.setValueAtTime(1200, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.05); gain.gain.setValueAtTime(0.05, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05); osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.05); }
-    else if (type === 'hit') { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = 'sine'; osc.frequency.setValueAtTime(1000, ctx.currentTime); gain.gain.setValueAtTime(0.08, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08); osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.08); }
-    else if (type === 'destroy') { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, ctx.currentTime); osc.frequency.linearRampToValueAtTime(40, ctx.currentTime + 0.15); gain.gain.setValueAtTime(0.12, ctx.currentTime); gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.15); osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.15); }
-    else if (type === 'quiz_correct') { [523.25, 1046.50].forEach((freq, i) => { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = 'sine'; osc.frequency.setValueAtTime(freq, ctx.currentTime + (i * 0.1)); gain.gain.setValueAtTime(0.1, ctx.currentTime + (i * 0.1)); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i * 0.1) + 0.2); osc.connect(gain); gain.connect(ctx.destination); osc.start(ctx.currentTime + (i * 0.1)); osc.stop(ctx.currentTime + (i * 0.1) + 0.2); }); }
-    else if (type === 'quiz_wrong') { [150, 150].forEach((freq, i) => { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(freq, ctx.currentTime + (i * 0.15)); gain.gain.setValueAtTime(0.1, ctx.currentTime + (i * 0.15)); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i * 0.15) + 0.1); osc.connect(gain); gain.connect(ctx.destination); osc.start(ctx.currentTime + (i * 0.15)); osc.stop(ctx.currentTime + (i * 0.15) + 0.15); }); }
-    else if (type === 'dead') { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = 'square'; osc.frequency.setValueAtTime(100, ctx.currentTime); gain.gain.setValueAtTime(0.2, ctx.currentTime); osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + 0.3); }
+    if (type === 'shoot') {
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.type = 'square'; osc.frequency.setValueAtTime(1200, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.05);
+        gain.gain.setValueAtTime(0.05, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime + 0.05);
+    } else if (type === 'hit') {
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.type = 'sine'; osc.frequency.setValueAtTime(1000, ctx.currentTime);
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime + 0.08);
+    } else if (type === 'destroy') {
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(40, ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime + 0.15);
+    } else if (type === 'quiz_correct') {
+        [523.25, 1046.50].forEach((freq, i) => {
+            const osc = ctx.createOscillator(); const gain = ctx.createGain();
+            osc.type = 'sine'; osc.frequency.setValueAtTime(freq, ctx.currentTime + (i * 0.1));
+            gain.gain.setValueAtTime(0.1, ctx.currentTime + (i * 0.1));
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i * 0.1) + 0.2);
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.start(ctx.currentTime + (i * 0.1)); osc.stop(ctx.currentTime + (i * 0.1) + 0.2);
+        });
+    } else if (type === 'quiz_wrong') {
+        [150, 150].forEach((freq, i) => {
+            const osc = ctx.createOscillator(); const gain = ctx.createGain();
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(freq, ctx.currentTime + (i * 0.15));
+            gain.gain.setValueAtTime(0.1, ctx.currentTime + (i * 0.15));
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i * 0.15) + 0.1);
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.start(ctx.currentTime + (i * 0.15)); osc.stop(ctx.currentTime + (i * 0.15) + 0.15);
+        });
+    } else if (type === 'dead') {
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.type = 'square'; osc.frequency.setValueAtTime(100, ctx.currentTime);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime + 0.3);
+    }
 }
 
 function playClearJingle(scene) {
-    const ctx = scene.sound.context; const melody = [523.25, 659.25, 783.99, 659.25, 1046.50]; const timings = [0, 0.15, 0.3, 0.45, 0.6];
-    melody.forEach((freq, i) => { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = 'triangle'; osc.frequency.setValueAtTime(freq, ctx.currentTime + timings[i]); gain.gain.setValueAtTime(0.1, ctx.currentTime + timings[i]); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + timings[i] + 0.2); osc.connect(gain); gain.connect(ctx.destination); osc.start(ctx.currentTime + timings[i]); osc.stop(ctx.currentTime + timings[i] + 0.25); });
+    const ctx = scene.sound.context;
+    const melody = [523.25, 659.25, 783.99, 659.25, 1046.50];
+    const timings = [0, 0.15, 0.3, 0.45, 0.6];
+    melody.forEach((freq, i) => {
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(freq, ctx.currentTime + timings[i]);
+        gain.gain.setValueAtTime(0.1, ctx.currentTime + timings[i]);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + timings[i] + 0.2);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + timings[i]); osc.stop(ctx.currentTime + timings[i] + 0.25);
+    });
 }
 
 function createStartButton(scene) {
-    const centerX = scene.cameras.main.width / 2; const centerY = scene.cameras.main.height / 2;
+    const centerX = scene.cameras.main.width / 2;
+    const centerY = scene.cameras.main.height / 2;
     const startButton = scene.add.rectangle(centerX, centerY, 400, 100, 0xffffff, 0.2).setInteractive().setScrollFactor(0).setStrokeStyle(4, 0xffffff);
     const startText = scene.add.text(centerX, centerY, 'スタート', { fontSize: '48px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0);
     startButton.on('pointerdown', () => { isWaitingToStart = false; startButton.destroy(); startText.destroy(); if (bgm) bgm.play(); scheduleNextSpawn(scene); scheduleNextBombSpawn(scene); });
@@ -174,17 +236,13 @@ function update(time) {
     if (player.x >= GOAL_DISTANCE) { handleClear(this); return; }
     bg.tilePositionX = this.cameras.main.scrollX * 0.4;
     enemies.getChildren().forEach(e => { if (e.body.velocity.x > 0) e.setFlipX(false); else e.setFlipX(true); });
-    
-    // 【スマホ対応】あなたのタッチ位置判定を活かしつつ、ボタン操作を優先
     if (this.input.activePointer.isDown && time > lastShootTime + 200 && !isQuizActive && this.input.activePointer.x > 300 && this.input.activePointer.x < window.innerWidth - 200) { shoot(this); lastShootTime = time; }
-    
     if (!isQuizActive) { 
         if (keys.A.isDown || moveLeft) { player.setVelocityX(-400); player.setFlipX(true); lastDirection = 'left'; } 
         else if (keys.D.isDown || moveRight) { player.setVelocityX(400); player.setFlipX(false); lastDirection = 'right'; } 
         else { player.setVelocityX(0); } 
     }
     if ((keys.W.isDown || spaceKey.isDown || doJump) && player.body.blocked.down) player.setVelocityY(-800);
-
     bullets = bullets.filter(b => { 
         if (!b.active) return false; 
         this.physics.overlap(b, enemies, (bullet, enemy) => { 
