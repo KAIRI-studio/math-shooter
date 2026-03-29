@@ -136,7 +136,6 @@ function create() {
 }
 
 function createTouchControls(scene) {
-    // scene.scaleから最新のサイズを拾うのが一番正確です
     const W = scene.scale.width;
     const H = scene.scale.height;
     
@@ -148,17 +147,23 @@ function createTouchControls(scene) {
         scene.add.text(x, y, txt, { fontSize: '40px' }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
     };
 
-    // 左側に移動
+    // --- 左側：移動ボタン（配置はそのまま） ---
     btn(100, H - 100, '←', () => moveLeft = true, () => moveLeft = false);
     btn(250, H - 100, '→', () => moveRight = true, () => moveRight = false);
 
-    // 右側にジャンプ(↑)と攻撃(FIRE)
-    btn(W - 250, H - 100, '↑', () => doJump = true, () => doJump = false); 
-    
-    let f = scene.add.circle(W - 100, H - 100, 75, 0xff0000, 0.4).setInteractive().setScrollFactor(0).setDepth(10000);
+    // --- 右側：ジャンプと攻撃を縦に並べる ---
+    const rightSideX = W - 120; // 右端からの距離
+
+    // 下段：FIREボタン（少し大きく、赤色で見やすく）
+    let f = scene.add.circle(rightSideX, H - 100, 75, 0xff0000, 0.4).setInteractive().setScrollFactor(0).setDepth(10000);
     f.on('pointerdown', () => { if(!isQuizActive && !isWaitingToStart) shoot(scene); });
-    scene.add.text(W - 100, H - 100, 'FIRE', { fontSize: '24px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+    scene.add.text(rightSideX, H - 100, 'うつ', { fontSize: '24px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+
+    // 上段：ジャンプボタン（FIREの真上に配置）
+    btn(rightSideX, H - 260, '↑', () => doJump = true, () => doJump = false); 
 }
+
+
 
 function playSE(scene, type) {
     const ctx = scene.sound.context;
@@ -189,7 +194,7 @@ function playSE(scene, type) {
         [523.25, 1046.50].forEach((freq, i) => {
             const osc = ctx.createOscillator(); const gain = ctx.createGain();
             osc.type = 'sine'; osc.frequency.setValueAtTime(freq, ctx.currentTime + (i * 0.1));
-            gain.gain.setValueAtTime(0.1, ctx.currentTime + (i * 0.1));
+            gain.gain.setValueAtTime(0.15, ctx.currentTime + (i * 0.1));
             gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i * 0.1) + 0.2);
             osc.connect(gain); gain.connect(ctx.destination);
             osc.start(ctx.currentTime + (i * 0.1)); osc.stop(ctx.currentTime + (i * 0.1) + 0.2);
@@ -198,7 +203,7 @@ function playSE(scene, type) {
         [150, 150].forEach((freq, i) => {
             const osc = ctx.createOscillator(); const gain = ctx.createGain();
             osc.type = 'sawtooth'; osc.frequency.setValueAtTime(freq, ctx.currentTime + (i * 0.15));
-            gain.gain.setValueAtTime(0.1, ctx.currentTime + (i * 0.15));
+            gain.gain.setValueAtTime(0.3, ctx.currentTime + (i * 0.15));
             gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i * 0.15) + 0.1);
             osc.connect(gain); gain.connect(ctx.destination);
             osc.start(ctx.currentTime + (i * 0.15)); osc.stop(ctx.currentTime + (i * 0.15) + 0.15);
@@ -219,7 +224,7 @@ function playClearJingle(scene) {
     melody.forEach((freq, i) => {
         const osc = ctx.createOscillator(); const gain = ctx.createGain();
         osc.type = 'triangle'; osc.frequency.setValueAtTime(freq, ctx.currentTime + timings[i]);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime + timings[i]);
+        gain.gain.setValueAtTime(0.4, ctx.currentTime + timings[i]);
         gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + timings[i] + 0.2);
         osc.connect(gain); gain.connect(ctx.destination);
         osc.start(ctx.currentTime + timings[i]); osc.stop(ctx.currentTime + timings[i] + 0.25);
@@ -294,14 +299,65 @@ function update(time) {
 function handleClear(scene) {
     if (isClear) return;
     isClear = true;
-    if(bgm) bgm.stop();
-    // （中略：テキスト表示など）
-    
-    // ここを書き換え：5秒後にリロード
+    if(bgm) bgm.stop(); // BGMを止める
+
+    // ★ 修正1: クリア時のジングルを鳴らす（ここはそのまま）
+    playClearJingle(scene); 
+
+    const W = scene.scale.width;
+    const H = scene.scale.height;
+
+    // ★ 修正2: 「クリア！！」の文字を「スタート」と同じスタイルにする
+    const clearButton = scene.add.rectangle(W / 2, H / 2, 400, 100, 0xffffff, 0.2)
+        .setScrollFactor(0)
+        .setStrokeStyle(4, 0xffffff)
+        .setDepth(20000); // 最前面に
+
+    const clearText = scene.add.text(W / 2, H / 2, 'クリア！！', { 
+        fontSize: '48px', // 「スタート」と同じサイズ
+        color: '#fff', 
+        fontStyle: 'bold' 
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(20001); // 文字を枠の上に
+
+    // 文字を少しだけフワフワさせる演出（オプション：なくても良いです）
+    scene.tweens.add({
+        targets: clearText,
+        y: clearText.y - 10,
+        duration: 300,
+        yoyo: true, // 往復
+        repeat: -1, // 無限に繰り返す
+        ease: 'Sine.easeInOut'
+    });
+
+    // ★ 修正3: プレイヤーを白く光らせる（点滅エフェクト）
+    if (player.body) {
+        player.setVelocityX(0); // 動きを止める
+        
+        // プレイヤーの色を白に固定（これが「光る」ベース）
+        player.setTint(0xffffff); 
+        
+        // プレイヤーを点滅させる
+        scene.tweens.add({
+            targets: player,
+            alpha: { from: 1, to: 0.2 }, // 1（不透明）から0.2（ほぼ透明）へ
+            duration: 150, // 0.15秒で
+            yoyo: true, // 往復
+            repeat: -1, // 無限に繰り返す
+            ease: 'Linear'
+        });
+    }
+
+    // ★ 修正4: 敵を全部消す（ここはそのまま）
+    enemies.clear(true, true);
+    bombs.clear(true, true);
+
+    // ★ 修正5: 5秒後にリロード（ここはそのまま）
     scene.time.delayedCall(5000, () => {
         window.location.reload(); 
     });
 }
+
+
 
 // プレイヤーが死んだ時
 function onPlayerHit() {
