@@ -26,13 +26,17 @@
 const config = {
     type: Phaser.AUTO,
     scale: {
-        mode: Phaser.Scale.RESIZE,
-        parent: document.body, // ボディ要素に直接フィットさせる
-        width: '100%',
-        height: '100%'
+        // FITではなくENVELOPを使うことで、画面いっぱいに広げつつ、
+        // あなたの「完全版」の比率を維持します。
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        // ここを「固定値」にすることで、スマホが勝手にズームするのを防ぎます
+        width: 1280, 
+        height: 720
     },
-    // ... input, physics, scene はそのまま
-    input: { activePointers: 3 },
+    input: {
+        activePointers: 3 // マルチタッチ用
+    },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
