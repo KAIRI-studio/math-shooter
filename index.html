@@ -11,11 +11,14 @@
     body { 
         margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: none; 
         display: flex; justify-content: center; align-items: center; 
-        height: 100vh; height: -webkit-fill-available;
+        /* 画面の高さを「バーを除いた実質値」に固定 */
+        height: 100dvh; 
     }
     canvas { 
-        max-width: 100vw; max-height: 100vh; 
-        object-fit: contain; 
+        /* ゲーム画面がブラウザの外に飛び出すのを防ぐ */
+        max-height: 100% !important; 
+        max-width: 100% !important;
+        object-fit: contain;
     }
 </style>
 <body>
@@ -23,14 +26,13 @@
 const config = {
     type: Phaser.AUTO,
     scale: {
-        mode: Phaser.Scale.RESIZE, // 画面サイズに合わせて常に中身を再構成する
-        autoCenter: Phaser.Scale.CENTER_BOTH,
+        mode: Phaser.Scale.RESIZE,
+        parent: document.body, // ボディ要素に直接フィットさせる
         width: '100%',
         height: '100%'
     },
-    input: {
-        activePointers: 3 
-    },
+    // ... input, physics, scene はそのまま
+    input: { activePointers: 3 },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
@@ -269,8 +271,34 @@ function update(time) {
     });
 }
 
-function handleClear(scene) { if (isClear) return; isClear = true; player.setVelocity(0, 0); enemies.clear(true, true); bombs.clear(true, true); if(bgm) bgm.stop(); playClearJingle(scene); const centerX = scene.cameras.main.width / 2, centerY = scene.cameras.main.height / 2; scene.add.text(centerX, centerY, 'CLEAR!!', { fontSize: '100px', fill: '#fff', fontStyle: 'bold', stroke: '#000', strokeThickness: 12 }).setOrigin(0.5).setScrollFactor(0); scene.tweens.add({ targets: player, alpha: 0.5, duration: 100, yoyo: true, repeat: 30 }); scene.time.delayedCall(6000, () => { scene.scene.restart(); }); }
-function onPlayerHit() { if (!isGameOver && !isClear && !isWaitingToStart) { isGameOver = true; if(bgm) bgm.stop(); playSE(this, 'dead'); player.setTint(0xff0000); this.time.delayedCall(1000, () => this.scene.restart()); } }
+// クリアした時
+function handleClear(scene) {
+    if (isClear) return;
+    isClear = true;
+    if(bgm) bgm.stop();
+    scene.add.text(scene.cameras.main.centerX, scene.cameras.main.centerY, 'CLEAR!!', { 
+        fontSize: '100px', fontStyle: 'bold' 
+    }).setOrigin(0.5).setScrollFactor(0);
+    
+    this.time.delayedCall(5000, () => {
+        window.location.reload(); // ページをリロードして初期化
+    });
+}
+
+// プレイヤーが死んだ時
+function onPlayerHit() {
+    if (!isGameOver && !isClear && !isWaitingToStart) {
+        isGameOver = true;
+        if(bgm) bgm.stop();
+        playSE(this, 'dead');
+        player.setTint(0xff0000);
+        // scene.restart() ではなく、ページそのものをリロードする
+        this.time.delayedCall(1000, () => {
+            window.location.reload(); 
+        });
+    }
+}
+
 function spawnEnemy(scene) { if (isGameOver || isClear || isWaitingToStart) return; const isFromLeft = Math.random() < 0.30; const cam = scene.cameras.main, spawnX = isFromLeft ? cam.scrollX - 150 : cam.scrollX + cam.width + 150; const e = scene.physics.add.sprite(spawnX, window.innerHeight - 200, 'enemy_sprite'); e.setScale(0.22).setOrigin(0.5, 1); e.setData('hp', 4); enemies.add(e); scene.physics.add.collider(e, ground); e.body.setSize(e.width * 0.4, e.height * 0.6).setOffset((e.width - e.width * 0.4) / 2, e.height - e.height * 0.6); if (isFromLeft) { e.body.setVelocityX(200); e.setTint(0xffaa00); } else { e.body.setVelocityX(-100); } }
 
 // 修正：爆弾の出現ロジックをマイルドに
