@@ -9,16 +9,18 @@
 </head>
 <style>
     body { 
-        margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: none; 
-        display: flex; justify-content: center; align-items: center; 
-        /* 画面の高さを「バーを除いた実質値」に固定 */
-        height: 100dvh; 
+        margin: 0; padding: 0; overflow: hidden; background: #000;
+        width: 100vw;
+        height: 100dvh; /* 動的な高さを取得 */
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
-    canvas { 
-        /* ゲーム画面がブラウザの外に飛び出すのを防ぐ */
-        max-height: 100% !important; 
+    /* Phaserが作るキャンバスを、親要素（body）に絶対従わせる */
+    canvas {
         max-width: 100% !important;
-        object-fit: contain;
+        max-height: 100% !important;
+        object-fit: contain; /* 比率を守って最大化 */
     }
 </style>
 <body>
@@ -26,11 +28,11 @@
 const config = {
     type: Phaser.AUTO,
     scale: {
-        // RESIZEモードこそが、PCで「あの最高なサイズ感」を出す唯一のモードです
-        mode: Phaser.Scale.RESIZE,
-        parent: document.body,
+        mode: Phaser.Scale.RESIZE, // 枠のサイズ変更に追従
+        parent: document.body,    // 親要素（body）のサイズを基準にする
         width: '100%',
-        height: '100%'
+        height: '100%',
+        autoCenter: Phaser.Scale.CENTER_BOTH
     },
     input: { activePointers: 3 },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
@@ -115,7 +117,7 @@ function create() {
 }
 
 function createTouchControls(scene) {
-    // 実行瞬間の「生の画面幅と高さ」を取得。これがズレ防止の鍵です。
+    // scale.width/heightを使うのが一番正確です
     const W = scene.scale.width;
     const H = scene.scale.height;
     
@@ -127,18 +129,14 @@ function createTouchControls(scene) {
         scene.add.text(x, y, txt, { fontSize: '40px' }).setOrigin(0.5).setScrollFactor(0).setDepth(2001);
     };
 
-    // 左下：移動ボタン
-    btn(100, H - 100, '←', () => moveLeft = true, () => moveLeft = false);
-    btn(250, H - 100, '→', () => moveRight = true, () => moveRight = false);
-
-    // 右下：ジャンプ(↑)と攻撃(FIRE)
-    btn(W - 250, H - 100, '↑', () => doJump = true, () => doJump = false); 
+    btn(100, H - 80, '←', () => moveLeft = true, () => moveLeft = false);
+    btn(250, H - 80, '→', () => moveRight = true, () => moveRight = false);
+    btn(W - 250, H - 80, '↑', () => doJump = true, () => doJump = false); 
     
-    let f = scene.add.circle(W - 100, H - 100, 75, 0xff0000, 0.4).setInteractive().setScrollFactor(0).setDepth(2000);
+    let f = scene.add.circle(W - 100, H - 80, 75, 0xff0000, 0.4).setInteractive().setScrollFactor(0).setDepth(2000);
     f.on('pointerdown', () => { if(!isQuizActive && !isWaitingToStart) shoot(scene); });
-    scene.add.text(W - 100, H - 100, 'FIRE', { fontSize: '28px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(2001);
+    scene.add.text(W - 100, H - 80, 'FIRE', { fontSize: '28px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(2001);
 }
-
 
 function playSE(scene, type) {
     const ctx = scene.sound.context;
