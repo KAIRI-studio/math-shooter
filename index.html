@@ -31,12 +31,16 @@ const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
 const config = {
     type: Phaser.AUTO,
     scale: {
-        // スマホはFIT（崩れない）、PCはRESIZE（全画面）
+        // PCはRESIZE（全画面）、スマホはFIT（比率維持）
         mode: isMobile ? Phaser.Scale.FIT : Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        // ここが重要！PCの時はブラウザサイズ、スマホの時は固定サイズ
+        
+        // 【ここがポイント】
+        // PCの数値はいじらない。
+        // スマホの時だけ、高さを720から「800」に少し余裕を持たせます。
+        // これで、上下にバーがあるスマホでも「上下」を優先して映すようになります。
         width: isMobile ? 1280 : window.innerWidth,
-        height: isMobile ? 720 : window.innerHeight
+        height: isMobile ? 800 : window.innerHeight
     },
     input: { activePointers: 3 },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
