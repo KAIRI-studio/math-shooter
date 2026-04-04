@@ -150,29 +150,40 @@ function createTouchControls(scene) {
     const W = scene.scale.width;
     const H = scene.scale.height;
     
-    const btn = (x, y, txt, start, end) => {
-        let c = scene.add.circle(x, y, 60, 0xffffff, 0.2).setInteractive().setScrollFactor(0).setDepth(10000);
+    // ボタンの共通サイズを 75 に設定
+    const btnSize = 75;
+
+    const btn = (x, y, txt, start, end, isFire = false) => {
+        // 「うつ」ボタンと同じ色・透明度・サイズの設定
+        let color = isFire ? 0xff0000 : 0xffffff;
+        let alpha = isFire ? 0.4 : 0.2;
+        
+        let c = scene.add.circle(x, y, btnSize, color, alpha).setInteractive().setScrollFactor(0).setDepth(10000);
         c.on('pointerdown', start);
         c.on('pointerup', end);
         c.on('pointerout', end);
-        scene.add.text(x, y, txt, { fontSize: '40px' }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+        
+        // テキストのサイズもボタンに合わせて調整
+        let fontSize = isFire ? '24px' : '45px';
+        scene.add.text(x, y, txt, { fontSize: fontSize, fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
     };
 
-    // --- 左上：移動ボタン ---
+    // --- 左上：移動ボタン（サイズアップ） ---
     btn(100, 100, '←', () => moveLeft = true, () => moveLeft = false);
-    btn(250, 100, '→', () => moveRight = true, () => moveRight = false);
+    btn(270, 100, '→', () => moveRight = true, () => moveRight = false);
 
     // --- 右上：ジャンプと攻撃を縦に並べる ---
     const rightSideX = W - 120;
 
-    // 上段：FIREボタン
-    let f = scene.add.circle(rightSideX, 100, 75, 0xff0000, 0.4).setInteractive().setScrollFactor(0).setDepth(10000);
-    f.on('pointerdown', () => { if(!isQuizActive && !isWaitingToStart) shoot(scene); });
-    scene.add.text(rightSideX, 100, 'うつ', { fontSize: '24px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+    // 上段：FIREボタン（既存のサイズ）
+    btn(rightSideX, 100, 'うつ', () => { 
+        if(!isQuizActive && !isWaitingToStart) shoot(scene); 
+    }, () => {}, true);
 
-    // その下：ジャンプボタン
-    btn(rightSideX, 260, '↑', () => doJump = true, () => doJump = false); 
+    // その下：ジャンプボタン（サイズアップ）
+    btn(rightSideX, 280, '↑', () => doJump = true, () => doJump = false); 
 }
+
 
 
 
