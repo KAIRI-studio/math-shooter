@@ -8,50 +8,47 @@
     <style> body { margin: 0; padding: 0; overflow: hidden; background: #000; } canvas { display: block; } </style>
 </head>
 <style>
-
-body, html {
-    margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
-}
-canvas {
-    display: block;
-    width: 100vw !important; /* 画面幅いっぱいに */
-    height: 100vh !important; /* 画面高さいっぱいに */
-    object-fit: contain; /* 比率を守って収める */
-}
-
-
+    body { 
+        margin: 0; padding: 0; overflow: hidden; background: #000;
+        width: 100vw;
+        height: 100dvh; /* 動的な高さを取得 */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    /* Phaserが作るキャンバスを、親要素（body）に絶対従わせる */
+    canvas {
+        max-width: 100% !important;
+        max-height: 100% !important;
+        object-fit: contain; /* 比率を守って最大化 */
+    }
 </style>
 <body>
 <script>
 // スマホかPCかを判定
 const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
 
-
 const config = {
     type: Phaser.AUTO,
     scale: {
-        // PCは自由なリサイズ、スマホは「FIT」で比率を維持
+        // PCはRESIZE（全画面）、スマホはFIT（比率維持）
         mode: isMobile ? Phaser.Scale.FIT : Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
         
-        // 【ここが最重要】
-        // 横幅は1280で固定しますが、高さ(height)は「今のスマホの生の値」を入れます。
-        // これで、ブラウザのバーが出ていても、その「隙間」の高さがゲームの高さになります。
-        width: 1280,
-        height: isMobile ? (1280 * (window.innerHeight / window.innerWidth)) : window.innerHeight
+        // 【ここがポイント】
+        // PCの数値はいじらない。
+        // スマホの時だけ、高さを720から「800」に少し余裕を持たせます。
+        // これで、上下にバーがあるスマホでも「上下」を優先して映すようになります。
+        width: isMobile ? 800 : window.innerWidth,
+        height: isMobile ? 520 : window.innerHeight
     },
-    // キャンバスが絶対に画面からはみ出さないようにする魔法の1行
-    canvasStyle: `max-width: 100%; max-height: 100%; object-fit: contain;`,
     input: { activePointers: 3 },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
 
+
 const game = new Phaser.Game(config);
-
-
-
-
 let player, enemies, bombs, bullets = [], shipGroup, keys, spaceKey, ground, bg;
 let isGameOver = false, isQuizActive = false, isClear = false, isWaitingToStart = true;
 let distanceText, bgm; 
