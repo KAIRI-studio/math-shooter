@@ -31,13 +31,12 @@ const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
 const config = {
     type: Phaser.AUTO,
     scale: {
-        // PC版：RESIZE（今までの最高な状態）
-        // スマホ版：FIT（画面内にきっちり収める）
-        mode: isMobile ? Phaser.Scale.FIT : Phaser.Scale.RESIZE,
+        // スマホもPCも RESIZE に統一して、画面を使い切る
+        mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: isMobile ? 1280 : window.innerWidth, // スマホは基準サイズを固定
-        height: isMobile ? 720 : window.innerHeight
+        // width, height は指定せず、ブラウザのサイズに追従させます
     },
+    // ...以下同じ
     input: { activePointers: 3 },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
@@ -67,26 +66,22 @@ function create() {
     isGameOver = false; isQuizActive = false; isClear = false; isWaitingToStart = true;
     bullets = []; 
 
-    // ★ 修正1: 画面の幅(W)と高さ(H)を取得
-    const W = this.scale.width;
+const W = this.scale.width;
     const H = this.scale.height;
 
-    // ★ 修正2: 世界の広さをHに合わせる
+    // 世界の高さはH、横幅は固定の WORLD_WIDTH
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, H);
 
-    // ★ 修正3: 背景を画面の一番下(H)に固定
+    // 背景も H に合わせて配置
     bg = this.add.tileSprite(0, H, WORLD_WIDTH, 1500, 'background');
     bg.setOrigin(0, 1).setScrollFactor(0);
 
-    // ★ 修正4: 地面を画面の一番下(H)に配置
+    // 地面も H に合わせて配置
     const GROUND_HEIGHT = 40;
     ground = this.add.rectangle(WORLD_WIDTH / 2, H - (GROUND_HEIGHT / 2), WORLD_WIDTH, GROUND_HEIGHT, 0xaaaaaa);
     this.physics.add.existing(ground, true);
 
-    const goalLine = this.add.rectangle(GOAL_DISTANCE, H / 2, 20, H, 0xff0000, 0.5);
-    this.add.text(GOAL_DISTANCE, H / 2 - 100, 'GOAL', { fontSize: '60px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5);
-
-    // ★ 修正5: プレイヤーを地面(H)の上に立たせる
+    // プレイヤーの初期位置を H に合わせる
     player = this.physics.add.sprite(300, H - 100, 'player_sprite');
     player.setScale(0.15).setOrigin(0.5, 1);
     player.body.setCollideWorldBounds(true);
@@ -138,6 +133,15 @@ distanceText = this.add.text(W / 2, 20, '', {
     this.physics.add.collider(player, ground);
     this.physics.add.collider(enemies, ground);
     this.physics.add.collider(bombs, ground); 
+
+// create 関数の最後の方に追加
+if (isMobile) {
+    // どんな画面サイズでも、高さが 720px 相当に見えるようにズーム率を計算
+    const targetHeight = 720;
+    const zoomLevel = H / targetHeight;
+    this.cameras.main.setZoom(zoomLevel);
+}
+
 }
 
 function createTouchControls(scene) {
