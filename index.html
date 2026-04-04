@@ -7,44 +7,49 @@
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style> body { margin: 0; padding: 0; overflow: hidden; background: #000; } canvas { display: block; } </style>
 </head>
+
+
 <style>
-    body { 
-        margin: 0; padding: 0; overflow: hidden; background: #000;
-        width: 100vw;
-        height: 100dvh; /* 動的な高さを取得 */
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-    /* Phaserが作るキャンバスを、親要素（body）に絶対従わせる */
-    canvas {
-        max-width: 100% !important;
-        max-height: 100% !important;
-        object-fit: contain; /* 比率を守って最大化 */
-    }
+    /* 1. ブラウザの「余計な動き」を根こそぎ止める */
+    body, html {
+        margin: 0; padding: 0; width: 100%; height: 100%; 
+        overflow: hidden; /* スクロールを物理的に禁止 */
+        background: #000;
+        display: flex; justify-content: center; align-items: center;
+    }
+    /* 2. キャンバスを画面内に「絶対」収める */
+    canvas {
+        max-width: 100vw !important;
+        max-height: 100dvh !important;
+        width: auto !important;
+        height: auto !important;
+        object-fit: contain; /* 黒帯が出てもいいから全体を映す */
+    }
 </style>
-<body>
+
 <script>
-// isMobileの判定は、ボタンを出すかどうかだけに使い、サイズには使いません
 const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
 
 const config = {
     type: Phaser.AUTO,
     scale: {
-        // 全デバイス共通で「1280x720」という箱を作り、それを画面に収める(FIT)
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: 1280,
-        height: 720
+        // 3. 画面を「引き」にするため、基準サイズを大きくする
+        // これで、PC版のドアップが解消され、敵が見えるようになります
+        width: 1920, 
+        height: 1080
     },
-    // CSSで余計な余白やスクロールを完全に殺します
-    canvasStyle: `width: 100%; height: 100%; object-fit: contain;`,
+    // ここでCSSの指示を補強
+    canvasStyle: `display: block; width: 100%; height: 100%;`,
     input: { activePointers: 3 },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
 
 const game = new Phaser.Game(config);
+
+
 
 
 
