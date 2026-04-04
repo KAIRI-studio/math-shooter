@@ -26,24 +26,30 @@ canvas {
 // スマホかPCかを判定
 const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
 
+
 const config = {
     type: Phaser.AUTO,
     scale: {
-        // PCもスマホも「RESIZE」に統一します。
-        // これでブラウザの「今見えている範囲」を100%使い切るので、スクロールが発生しなくなります。
-        mode: Phaser.Scale.RESIZE,
+        // PCはRESIZE、スマホはENVELOP（画面を覆うが比率は守る）に変更
+        mode: isMobile ? Phaser.Scale.ENVELOP : Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: window.innerWidth,
-        height: window.innerHeight
+        // スマホの基準を「横1280」に固定。
+        // これで、どんなスマホでも1280pxの広さとして計算され、巨大化が止まります。
+        width: isMobile ? 1280 : window.innerWidth,
+        height: isMobile ? 720 : window.innerHeight
     },
+    // キャンバスがブラウザからはみ出すのをCSSレベルで禁止
+    canvasStyle: `width: 100%; height: 100%; object-fit: contain;`,
     input: { activePointers: 3 },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
 
-
-
 const game = new Phaser.Game(config);
+
+
+
+
 let player, enemies, bombs, bullets = [], shipGroup, keys, spaceKey, ground, bg;
 let isGameOver = false, isQuizActive = false, isClear = false, isWaitingToStart = true;
 let distanceText, bgm; 
