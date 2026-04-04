@@ -139,30 +139,47 @@ function createTouchControls(scene) {
     const W = scene.scale.width;
     const H = scene.scale.height;
     
-    const btn = (x, y, txt, start, end) => {
-        let c = scene.add.circle(x, y, 60, 0xffffff, 0.2).setInteractive().setScrollFactor(0).setDepth(10000);
+    // ボタンの共通設定
+    const btnSize = 75; // 「うつ」ボタンと同じ大きさに統一
+    const topMargin = 100; // 画面上端からの距離
+
+    const btn = (x, y, txt, start, end, isFire = false) => {
+        // ボタンの本体（円）
+        let color = isFire ? 0xff0000 : 0xffffff;
+        let alpha = isFire ? 0.4 : 0.2;
+        let c = scene.add.circle(x, y, btnSize, color, alpha)
+            .setInteractive()
+            .setScrollFactor(0)
+            .setDepth(10000);
+            
         c.on('pointerdown', start);
         c.on('pointerup', end);
         c.on('pointerout', end);
-        scene.add.text(x, y, txt, { fontSize: '40px' }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+        
+        // ボタンの文字
+        scene.add.text(x, y, txt, { 
+            fontSize: isFire ? '24px' : '40px', 
+            fontStyle: 'bold' 
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
     };
 
-    // --- 左側：移動ボタン（配置はそのまま） ---
-    btn(100, H - 100, '←', () => moveLeft = true, () => moveLeft = false);
-    btn(250, H - 100, '→', () => moveRight = true, () => moveRight = false);
+    // --- 左上：移動ボタン ---
+    // 指で隠れないよう、少し内側に寄せて配置
+    btn(100, topMargin, '←', () => moveLeft = true, () => moveLeft = false);
+    btn(270, topMargin, '→', () => moveRight = true, () => moveRight = false);
 
-    // --- 右側：ジャンプと攻撃を縦に並べる ---
-    const rightSideX = W - 120; // 右端からの距離
+    // --- 右上：アクションボタン ---
+    const rightSideX = W - 120;
 
-    // 下段：FIREボタン（少し大きく、赤色で見やすく）
-    let f = scene.add.circle(rightSideX, H - 100, 75, 0xff0000, 0.4).setInteractive().setScrollFactor(0).setDepth(10000);
-    f.on('pointerdown', () => { if(!isQuizActive && !isWaitingToStart) shoot(scene); });
-    scene.add.text(rightSideX, H - 100, 'うつ', { fontSize: '24px', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+    // 攻撃ボタン（上段の一番右）
+    btn(rightSideX, topMargin, 'うつ', () => { 
+        if(!isQuizActive && !isWaitingToStart) shoot(scene); 
+    }, () => {}, true);
 
-    // 上段：ジャンプボタン（FIREの真上に配置）
-    btn(rightSideX, H - 260, '↑', () => doJump = true, () => doJump = false); 
+    // ジャンプボタン（攻撃ボタンの左隣、または下）
+    // 今回は押しやすさを考え、攻撃ボタンのすぐ下に配置してみます
+    btn(rightSideX, topMargin + 170, '↑', () => doJump = true, () => doJump = false); 
 }
-
 
 
 function playSE(scene, type) {
