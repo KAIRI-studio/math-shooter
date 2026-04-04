@@ -30,14 +30,13 @@
 const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
 
 const config = {
-    type: Phaser.AUTO,
+type: Phaser.AUTO,
     scale: {
-        // PC版：RESIZE（今までの最高な状態）
-        // スマホ版：FIT（画面内にきっちり収める）
-        mode: isMobile ? Phaser.Scale.FIT : Phaser.Scale.RESIZE,
+        // スマホの時だけ、縦横比を無視して「画面を使い切る」モードにする
+        mode: isMobile ? Phaser.Scale.ENVELOP : Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: isMobile ? 1920 : window.innerWidth, // スマホは基準サイズを1920x1080に固定
-        height: isMobile ? 1080 : window.innerHeight
+        width: isMobile ? window.innerWidth : window.innerWidth,
+        height: isMobile ? window.innerHeight : window.innerHeight
     },    input: { activePointers: 3 },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
