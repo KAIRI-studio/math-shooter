@@ -26,22 +26,22 @@ canvas {
 // スマホかPCかを判定
 const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
 
+
 const config = {
     type: Phaser.AUTO,
     scale: {
-        // PCは自由なRESIZE、スマホは比率を守って収めるFIT
+        // PCは自由なリサイズ、スマホは「FIT」で比率を維持
         mode: isMobile ? Phaser.Scale.FIT : Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
         
-        // 【重要】
-        // 横幅(width)は1280で固定。
-        // 高さ(height)は、スマホのブラウザが「今、実際に表示できる高さ」を
-        // リアルタイムで計算して当てはめます。
-        width: isMobile ? 1280 : window.innerWidth,
+        // 【ここが最重要】
+        // 横幅は1280で固定しますが、高さ(height)は「今のスマホの生の値」を入れます。
+        // これで、ブラウザのバーが出ていても、その「隙間」の高さがゲームの高さになります。
+        width: 1280,
         height: isMobile ? (1280 * (window.innerHeight / window.innerWidth)) : window.innerHeight
     },
-    // CSSで「はみ出し」を絶対に許さない設定
-    canvasStyle: `max-width: 100vw; max-height: 100dvh; object-fit: contain;`,
+    // キャンバスが絶対に画面からはみ出さないようにする魔法の1行
+    canvasStyle: `max-width: 100%; max-height: 100%; object-fit: contain;`,
     input: { activePointers: 3 },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
