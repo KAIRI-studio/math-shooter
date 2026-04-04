@@ -26,18 +26,19 @@
 <body>
 <script>
 // スマホかPCかを判定
+// スマホかPCかを判定
 const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
 
 const config = {
     type: Phaser.AUTO,
     scale: {
-        // スマホもPCも RESIZE に統一して、画面を使い切る
-        mode: Phaser.Scale.RESIZE,
+        // PC版：RESIZE（今までの最高な状態）
+        // スマホ版：FIT（画面内にきっちり収める）
+        mode: isMobile ? Phaser.Scale.FIT : Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        // width, height は指定せず、ブラウザのサイズに追従させます
-    },
-    // ...以下同じ
-    input: { activePointers: 3 },
+        width: isMobile ? 1920 : window.innerWidth, // スマホは基準サイズを1920x1080に固定
+        height: isMobile ? 1080 : window.innerHeight
+    },    input: { activePointers: 3 },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
@@ -66,26 +67,29 @@ function create() {
     isGameOver = false; isQuizActive = false; isClear = false; isWaitingToStart = true;
     bullets = []; 
 
-const W = this.scale.width;
+    // ★ 修正1: 画面の幅(W)と高さ(H)を取得
+    const W = this.scale.width;
     const H = this.scale.height;
 
-    // 世界の高さはH、横幅は固定の WORLD_WIDTH
+    // ★ 修正2: 世界の広さをHに合わせる
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, H);
 
-    // 背景も H に合わせて配置
+    // ★ 修正3: 重ね順を調整。背景は一番後ろ
     bg = this.add.tileSprite(0, H, WORLD_WIDTH, 1500, 'background');
-    bg.setOrigin(0, 1).setScrollFactor(0);
+    bg.setOrigin(0, 1).setScrollFactor(0).setDepth(-1); 
 
-    // 地面も H に合わせて配置
+    // ★ 修正4: 地面を画面の一番下(H)に配置
     const GROUND_HEIGHT = 40;
     ground = this.add.rectangle(WORLD_WIDTH / 2, H - (GROUND_HEIGHT / 2), WORLD_WIDTH, GROUND_HEIGHT, 0xaaaaaa);
     this.physics.add.existing(ground, true);
+    ground.setDepth(0); // 地面を船より手前に
 
-    // プレイヤーの初期位置を H に合わせる
+    // ★ 修正5: プレイヤーを地面(H)の上に立たせ、船より手前に出す
     player = this.physics.add.sprite(300, H - 100, 'player_sprite');
     player.setScale(0.15).setOrigin(0.5, 1);
     player.body.setCollideWorldBounds(true);
     player.body.setSize(player.width * 0.6, player.height * 0.9).setOffset(player.width * 0.2, player.height * 0.1);
+    player.setDepth(10); // 重ね順を大きくして最前面に
 
     // ★ 修正6: カメラの範囲もHに合わせる
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, H);
@@ -95,7 +99,7 @@ const W = this.scale.width;
     bombs = this.physics.add.group();
     shipGroup = this.physics.add.staticGroup();
 
-    // ★ 修正7: 宇宙船(クイズ)も地面(H)の上に置く
+    // ★ 修正7: 宇宙船(クイズ)も地面(H)の上に置き、敵より後ろにする
     for(let x = 2000; x < GOAL_DISTANCE; x += 2000) {
         const s = this.add.sprite(x, H - 20, 'ship_sprite');
         s.setScale(0.5).setOrigin(0, 1);
@@ -104,22 +108,26 @@ const W = this.scale.width;
         const shipHitH = s.height * 0.6;
         s.body.setSize(shipHitW, shipHitH).setOffset(s.width * 0.1, s.height - shipHitH);
         shipGroup.add(s);
+        s.setDepth(5); // 船を敵より後ろに
     }
 
-// create関数の中にある distanceText の部分を探して書き換えてください
-distanceText = this.add.text(W / 2, 20, '', { 
-    fontSize: '32px', 
-    color: '#fff', 
-    fontStyle: 'bold', 
-    stroke: '#000', 
-    strokeThickness: 8, 
-    padding: { top: 20, bottom: 10 }
-}).setOrigin(0.5, 0).setScrollFactor(0).setDepth(10002); // setOrigin(0.5, 0)で中央揃えに
+    // ★ 修正8: ゴールラインの復活と重ね順の調整
+    const goalLine = this.add.rectangle(GOAL_DISTANCE, H / 2, 20, H, 0xff0000, 0.5);
+    goalLine.setDepth(1); 
+    this.add.text(GOAL_DISTANCE, H / 2 - 100, 'GOAL', { 
+        fontSize: '80px', color: '#ff0000', fontStyle: 'bold' 
+    }).setOrigin(0.5).setDepth(2);
+
+    // ★ 修正9: ステータス文字を画面中央上に配置
+    distanceText = this.add.text(W / 2, 50, '', { 
+        fontSize: '40px', color: '#fff', fontStyle: 'bold', stroke: '#000', strokeThickness: 8
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(20000); // 文字を最前面に
+
     bgm = this.sound.add('main_bgm', { volume: 0.15, loop: true });
 
     createStartButton(this);
 
-    // ★ 修正8: ここもisMobileで判定（前回追加した部分）
+    // ★ 修正10: ここもisMobileで判定。PC版ではボタンを非表示にする
     if (isMobile) { 
         createTouchControls(this); 
     }
@@ -127,69 +135,46 @@ distanceText = this.add.text(W / 2, 20, '', {
     keys = this.input.keyboard.addKeys('W,A,S,D');
     spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
+    // 当たり判定の設定
     this.physics.add.collider(player, enemies, onPlayerHit, null, this);
     this.physics.add.collider(player, shipGroup, startQuiz, null, this);
     this.physics.add.collider(player, bombs, onPlayerHit, null, this);
     this.physics.add.collider(player, ground);
     this.physics.add.collider(enemies, ground);
     this.physics.add.collider(bombs, ground); 
-
-// create 関数の最後の方に追加
-if (isMobile) {
-    // どんな画面サイズでも、高さが 720px 相当に見えるようにズーム率を計算
-    const targetHeight = 720;
-    const zoomLevel = H / targetHeight;
-    this.cameras.main.setZoom(zoomLevel);
 }
 
-}
 
 function createTouchControls(scene) {
-    const W = scene.scale.width;
+    const W = scene.getBufferWidth ? scene.getBufferWidth() : scene.scale.width;
     const H = scene.scale.height;
     
-    // ボタンの共通設定
-    const btnSize = 75; // 「うつ」ボタンと同じ大きさに統一
-    const topMargin = 100; // 画面上端からの距離
+    const btnSize = 80; // 少し大きく
+    const margin = 100;
 
+    // ボタン作成用の共通関数（修正版）
     const btn = (x, y, txt, start, end, isFire = false) => {
-        // ボタンの本体（円）
         let color = isFire ? 0xff0000 : 0xffffff;
-        let alpha = isFire ? 0.4 : 0.2;
-        let c = scene.add.circle(x, y, btnSize, color, alpha)
-            .setInteractive()
-            .setScrollFactor(0)
-            .setDepth(10000);
+        let c = scene.add.circle(x, y, btnSize, color, 0.3)
+            .setInteractive().setScrollFactor(0).setDepth(30000); // 奥行きを最大に
             
         c.on('pointerdown', start);
         c.on('pointerup', end);
         c.on('pointerout', end);
         
-        // ボタンの文字
         scene.add.text(x, y, txt, { 
-            fontSize: isFire ? '24px' : '40px', 
-            fontStyle: 'bold' 
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(10001);
+            fontSize: isFire ? '30px' : '50px', fontStyle: 'bold' 
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(30001);
     };
 
-    // --- 左上：移動ボタン ---
-    // 指で隠れないよう、少し内側に寄せて配置
-    btn(100, topMargin, '←', () => moveLeft = true, () => moveLeft = false);
-    btn(270, topMargin, '→', () => moveRight = true, () => moveRight = false);
+    // 配置：左上
+    btn(margin, margin, '←', () => moveLeft = true, () => moveLeft = false);
+    btn(margin + 180, margin, '→', () => moveRight = true, () => moveRight = false);
 
-    // --- 右上：アクションボタン ---
-    const rightSideX = W - 120;
-
-    // 攻撃ボタン（上段の一番右）
-    btn(rightSideX, topMargin, 'うつ', () => { 
-        if(!isQuizActive && !isWaitingToStart) shoot(scene); 
-    }, () => {}, true);
-
-    // ジャンプボタン（攻撃ボタンの左隣、または下）
-    // 今回は押しやすさを考え、攻撃ボタンのすぐ下に配置してみます
-    btn(rightSideX, topMargin + 170, '↑', () => doJump = true, () => doJump = false); 
+    // 配置：右上
+    btn(W - margin, margin, 'うつ', () => { if(!isQuizActive) shoot(scene); }, () => {}, true);
+    btn(W - margin, margin + 200, '↑', () => doJump = true, () => doJump = false);
 }
-
 
 function playSE(scene, type) {
     const ctx = scene.sound.context;
@@ -270,14 +255,32 @@ function startQuiz(player, ship) {
     isQuizActive = true; player.setVelocityX(0);
     const centerX = this.cameras.main.worldView.centerX, centerY = this.cameras.main.worldView.centerY;
     const pW = 500, pH = 400, topY = centerY - (pH / 2);
-    const overlay = this.add.rectangle(centerX, centerY, pW, pH, 0x000000, 0.95).setStrokeStyle(4, 0xffffff);
-    const title = this.add.text(centerX, topY + 40, 'もんだい', { fontSize: '28px', color: '#ffff00' }).setOrigin(0.5);
-    const qText = this.add.text(centerX, topY + 120, '', { fontSize: '50px', color: '#fff' }).setOrigin(0.5);
+
+    // ★ 修正1: クイズ画面のすべての要素の奥行きを 100 に統一
+    const overlay = this.add.rectangle(centerX, centerY, pW, pH, 0x000000, 0.95)
+        .setStrokeStyle(4, 0xffffff)
+        .setDepth(100); 
+
+    const title = this.add.text(centerX, topY + 40, 'もんだい', { fontSize: '28px', color: '#ffff00' })
+        .setOrigin(0.5)
+        .setDepth(100);
+
+    const qText = this.add.text(centerX, topY + 120, '', { fontSize: '50px', color: '#fff' })
+        .setOrigin(0.5)
+        .setDepth(100);
+
     const buttons = [];
     for (let i = 0; i < 3; i++) {
         const btnY = topY + 210 + (i * 65);
-        const btn = this.add.rectangle(centerX, btnY, 200, 45, 0x333333).setInteractive().setStrokeStyle(2, 0xffffff);
-        const txt = this.add.text(centerX, btnY, '', { fontSize: '28px', color: '#fff' }).setOrigin(0.5);
+        const btn = this.add.rectangle(centerX, btnY, 200, 45, 0x333333)
+            .setInteractive()
+            .setStrokeStyle(2, 0xffffff)
+            .setDepth(100); // ボタン本体の奥行きを 100 に
+
+        const txt = this.add.text(centerX, btnY, '', { fontSize: '28px', color: '#fff' })
+            .setOrigin(0.5)
+            .setDepth(101); // 文字をボタンの上に表示するため 101 に
+
         btn.txt = txt;
         btn.on('pointerdown', () => { 
             if (btn.val === btn.ans) { playSE(this, 'quiz_correct'); [overlay, title, qText, ...buttons, ...buttons.map(b=>b.txt)].forEach(obj => obj.destroy()); ship.destroy(); isQuizActive = false; } 
@@ -287,6 +290,9 @@ function startQuiz(player, ship) {
     }
     generateProblem(qText, buttons);
 }
+
+
+
 
 function generateProblem(qText, buttons) {
     let n1, n2, ans, sign;
@@ -426,6 +432,7 @@ function spawnEnemy(scene) {
     } else { 
         e.body.setVelocityX(-100); 
     } 
+    e.setDepth(8); // 船より手前に
 }
 
 
@@ -445,6 +452,7 @@ function spawnBomb(scene) {
     
     scene.physics.add.collider(b, ground); 
     b.body.setVelocityX(-200); 
+    b.setDepth(8); // 船より手前に
 }
 
 
@@ -468,7 +476,24 @@ function scheduleNextBombSpawn(scene) {
     }); 
 }
 
-function shoot(scene) { if (isWaitingToStart) return; playSE(scene, 'shoot'); const b = scene.add.rectangle(player.x + (lastDirection === 'right' ? 45 : -45), player.y - 70, 25, 6, 0xffff00); scene.physics.add.existing(b); b.body.setAllowGravity(false); b.body.setVelocityX(lastDirection === 'left' ? -1500 : 1500); b.active = true; bullets.push(b); scene.time.delayedCall(1000, () => { if(b.active) { b.active = false; b.destroy(); } }); }
+function shoot(scene) { 
+    if (isWaitingToStart) return; 
+    playSE(scene, 'shoot'); 
+    
+    // ★ 修正2: 弾の奥行きを 15 に設定
+    const b = scene.add.rectangle(player.x + (lastDirection === 'right' ? 45 : -45), player.y - 70, 25, 6, 0xffff00)
+        .setDepth(15); 
+    
+    scene.physics.add.existing(b); 
+    b.body.setAllowGravity(false); 
+    b.body.setVelocityX(lastDirection === 'left' ? -1500 : 1500); 
+    b.active = true; 
+    bullets.push(b); 
+    scene.time.delayedCall(1000, () => { if(b.active) { b.active = false; b.destroy(); } }); 
+}
+
+
+
 </script>
 </body>
 </html>
