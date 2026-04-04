@@ -29,19 +29,21 @@
 const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
 
 const config = {
-    type: Phaser.AUTO,
-    scale: {
-        // PC版：RESIZE（今までの最高な状態）
-        // スマホ版：FIT（画面内にきっちり収める）
-        mode: isMobile ? Phaser.Scale.FIT : Phaser.Scale.RESIZE,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: isMobile ? 1280 : window.innerWidth, // スマホは基準サイズを固定
-        height: isMobile ? 720 : window.innerHeight
-    },
-    input: { activePointers: 3 },
-    physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
-    scene: { preload: preload, create: create, update: update }
+    type: Phaser.AUTO,
+    scale: {
+        // RESIZEモードに統一。これでブラウザの「今の表示領域」に自動で合わせます
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        // 固定値ではなく、常に「今見えている範囲」を取得
+        width: window.innerWidth,
+        height: window.innerHeight
+    },
+    input: { activePointers: 3 },
+    physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
+    scene: { preload: preload, create: create, update: update }
 };
+
+
 
 const game = new Phaser.Game(config);
 let player, enemies, bombs, bullets = [], shipGroup, keys, spaceKey, ground, bg;
