@@ -25,30 +25,29 @@
 </style>
 <body>
 <script>
-// スマホかPCかを判定
+// isMobileの判定は、ボタンを出すかどうかだけに使い、サイズには使いません
 const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
 
 const config = {
     type: Phaser.AUTO,
     scale: {
-        // PCはRESIZE（全画面）、スマホはFIT（比率維持）
-        mode: isMobile ? Phaser.Scale.FIT : Phaser.Scale.RESIZE,
+        // 全デバイス共通で「1280x720」という箱を作り、それを画面に収める(FIT)
+        mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        
-        // 【ここがポイント】
-        // PCの数値はいじらない。
-        // スマホの時だけ、高さを720から「800」に少し余裕を持たせます。
-        // これで、上下にバーがあるスマホでも「上下」を優先して映すようになります。
-        width: isMobile ? 1920 : window.innerWidth,
-        height: isMobile ? 780 : window.innerHeight
+        width: 1280,
+        height: 720
     },
+    // CSSで余計な余白やスクロールを完全に殺します
+    canvasStyle: `width: 100%; height: 100%; object-fit: contain;`,
     input: { activePointers: 3 },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
 
-
 const game = new Phaser.Game(config);
+
+
+
 let player, enemies, bombs, bullets = [], shipGroup, keys, spaceKey, ground, bg;
 let isGameOver = false, isQuizActive = false, isClear = false, isWaitingToStart = true;
 let distanceText, bgm; 
