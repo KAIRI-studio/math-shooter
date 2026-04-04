@@ -31,18 +31,17 @@ const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
 const config = {
     type: Phaser.AUTO,
     scale: {
-        // RESIZEモードに統一。これでブラウザの「今の表示領域」に自動で合わせます
-        mode: Phaser.Scale.RESIZE,
+        // スマホはFIT（崩れない）、PCはRESIZE（全画面）
+        mode: isMobile ? Phaser.Scale.FIT : Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        // 固定値ではなく、常に「今見えている範囲」を取得
-        width: window.innerWidth,
-        height: window.innerHeight
+        // ここが重要！PCの時はブラウザサイズ、スマホの時は固定サイズ
+        width: isMobile ? 1280 : window.innerWidth,
+        height: isMobile ? 720 : window.innerHeight
     },
     input: { activePointers: 3 },
     physics: { default: 'arcade', arcade: { gravity: { y: 1500 }, debug: false } },
     scene: { preload: preload, create: create, update: update }
 };
-
 
 
 const game = new Phaser.Game(config);
