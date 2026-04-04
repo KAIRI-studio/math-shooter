@@ -111,10 +111,15 @@ function create() {
         shipGroup.add(s);
     }
 
-    distanceText = this.add.text(20, 30, '', { 
-        fontSize: '32px', color: '#fff', fontStyle: 'bold', stroke: '#000', strokeThickness: 8, padding: { top: 20, bottom: 10 }
-    }).setScrollFactor(0);
-
+// create関数の中にある distanceText の部分を探して書き換えてください
+distanceText = this.add.text(W / 2, 20, '', { 
+    fontSize: '32px', 
+    color: '#fff', 
+    fontStyle: 'bold', 
+    stroke: '#000', 
+    strokeThickness: 8, 
+    padding: { top: 20, bottom: 10 }
+}).setOrigin(0.5, 0).setScrollFactor(0).setDepth(10002); // setOrigin(0.5, 0)で中央揃えに
     bgm = this.sound.add('main_bgm', { volume: 0.15, loop: true });
 
     createStartButton(this);
