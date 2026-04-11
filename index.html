@@ -23,6 +23,24 @@
 <script>
 const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
 
+// 難易度設定
+//const LEVELS = {
+    //'1年生': { min: 1, max: 10, operators: ['＋', '－'], speed: 100 },
+    //'3年生': { min: 10, max: 99, operators: ['＋', '－', '×'], speed: 150 },
+    //'5年生': { min: 10, max: 99, operators: ['＋', '－', '×', '÷'], speed: 200 }
+//};
+//let currentLevel = '1年生'; // デフォルト
+
+
+const MODES = {
+    'addition': { label: 'たしざん ＆ ひきざん' },
+    'multiplication': { label: 'かけざん' },
+    'division': { label: 'わりざん' }
+};
+
+let currentMode = 'addition'; // デフォルト
+
+
 const config = {
     type: Phaser.AUTO,
     scale: {
@@ -126,7 +144,7 @@ distanceText = this.add.text(W / 2, 50, '', {
 
     bgm = this.sound.add('main_bgm', { volume: 0.15, loop: true });
 
-    createStartButton(this);
+   createMainMenu(this);
 
     // ★ 修正8: ここもisMobileで判定（前回追加した部分）
     if (isMobile) { 
@@ -145,6 +163,89 @@ distanceText = this.add.text(W / 2, 50, '', {
 }
 
 
+
+function createMainMenu(scene) {
+    const W = scene.scale.width;
+    const H = scene.scale.height;
+
+    // 背景を暗くする
+    const menuBg = scene.add.rectangle(W/2, H/2, W, H, 0x000000, 0.7).setScrollFactor(0).setDepth(30000);
+    const titleText = scene.add.text(W/2, H/2 - 200, 'Math Shooter', { fontSize: '64px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5).setScrollFactor(0).setDepth(30001);
+
+    const modeKeys = Object.keys(MODES);
+    const buttons = [];
+
+    modeKeys.forEach((key, i) => {
+        const btnY = H / 2 - 50 + (i * 120);
+        
+        // --- 1. ボタン枠 ---
+        // useHandCursor: true を入れるとマウスが乗った時に指アイコンになります
+        const btn = scene.add.rectangle(W/2, btnY, 400, 80, 0xffffff, 0.2)
+            .setInteractive({ useHandCursor: true }) 
+            .setStrokeStyle(4, 0xffffff)
+            .setScrollFactor(0)
+            .setDepth(30001);
+            
+        // --- 2. ボタン文字 ---
+        const txt = scene.add.text(W/2, btnY, MODES[key].label, { 
+            fontSize: '32px', 
+            color: '#fff',
+            fontStyle: 'bold',
+            padding: { top: 15, bottom: 15 }
+        })
+            .setOrigin(0.5)
+            .setScrollFactor(0)
+            .setDepth(30002);
+
+        // --- 3. 演出：マウスが乗ったとき (Over) ---
+        btn.on('pointerover', () => {
+            btn.setStrokeStyle(4, 0xffff00); // 枠を黄色に
+            txt.setTint(0xffff00);           // 文字を黄色に
+        });
+
+        // --- 4. 演出：マウスが外れたとき (Out) ---
+        btn.on('pointerout', () => {
+            btn.setStrokeStyle(4, 0xffffff); // 白に戻す
+            txt.clearTint();                 // 文字色を戻す
+        });
+
+        // --- 5. 演出：クリックした瞬間 (Down) ---
+        btn.on('pointerdown', () => {
+            btn.y += 4; // ボタンを少し下げる（押した感）
+            txt.y += 4;
+            currentMode = key; 
+        });
+
+        // --- 6. 実行：クリックして離したとき (Up) ---
+        btn.on('pointerup', () => {
+            // ゲーム開始処理
+            menuBg.destroy();
+            titleText.destroy();
+            buttons.forEach(b => {
+                b.btn.destroy();
+                b.txt.destroy();
+            });
+
+            isWaitingToStart = false; 
+            if (bgm) bgm.play();
+            scheduleNextSpawn(scene);
+            scheduleNextBombSpawn(scene);
+        });
+
+        buttons.push({ btn, txt });
+    });
+} // createMainMenuの閉じカッコ
+
+
+
+
+function startGame(scene, elementsToDestroy) {
+    elementsToDestroy.forEach(el => el.destroy());
+    isWaitingToStart = false;
+    if (bgm) bgm.play();
+    scheduleNextSpawn(scene);
+    scheduleNextBombSpawn(scene);
+}
 
 
 function createTouchControls(scene) {
@@ -256,13 +357,9 @@ function playClearJingle(scene) {
     });
 }
 
-function createStartButton(scene) {
-    const centerX = scene.cameras.main.width / 2;
-    const centerY = scene.cameras.main.height / 2;
-    const startButton = scene.add.rectangle(centerX, centerY, 400, 100, 0xffffff, 0.2).setInteractive().setScrollFactor(0).setStrokeStyle(4, 0xffffff);
-    const startText = scene.add.text(centerX, centerY, 'スタート', { fontSize: '48px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0);
-    startButton.on('pointerdown', () => { isWaitingToStart = false; startButton.destroy(); startText.destroy(); if (bgm) bgm.play(); scheduleNextSpawn(scene); scheduleNextBombSpawn(scene); });
-}
+
+
+
 
 function startQuiz(player, ship) {
     if (isQuizActive || isClear || isWaitingToStart) return;
@@ -274,26 +371,118 @@ function startQuiz(player, ship) {
     const qText = this.add.text(centerX, topY + 120, '', { fontSize: '50px', color: '#fff' }).setOrigin(0.5);
     const buttons = [];
     for (let i = 0; i < 3; i++) {
-        const btnY = topY + 210 + (i * 65);
-        const btn = this.add.rectangle(centerX, btnY, 200, 45, 0x333333).setInteractive().setStrokeStyle(2, 0xffffff);
-        const txt = this.add.text(centerX, btnY, '', { fontSize: '28px', color: '#fff' }).setOrigin(0.5);
-        btn.txt = txt;
-        btn.on('pointerdown', () => { 
-            if (btn.val === btn.ans) { playSE(this, 'quiz_correct'); [overlay, title, qText, ...buttons, ...buttons.map(b=>b.txt)].forEach(obj => obj.destroy()); ship.destroy(); isQuizActive = false; } 
-            else { playSE(this, 'quiz_wrong'); btn.setFillStyle(0xff0000); this.time.delayedCall(300, () => generateProblem(qText, buttons)); } 
-        });
-        buttons.push(btn);
-    }
+        const btnY = topY + 210 + (i * 65);
+        // useHandCursor: true を追加
+        const btn = this.add.rectangle(centerX, btnY, 200, 45, 0x333333).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0xffffff);
+        const txt = this.add.text(centerX, btnY, '', { fontSize: '28px', color: '#fff' }).setOrigin(0.5);
+        btn.txt = txt;
+
+        // --- 演出：マウスが乗ったとき ---
+        btn.on('pointerover', () => {
+            btn.setStrokeStyle(4, 0xffff00);
+            txt.setTint(0xffff00);
+        });
+
+        // --- 演出：マウスが外れたとき ---
+        btn.on('pointerout', () => {
+            btn.setStrokeStyle(2, 0xffffff);
+            txt.clearTint();
+        });
+
+        // --- 演出：クリックした瞬間 ---
+        btn.on('pointerdown', () => {
+            btn.y += 4; // 凹む
+            txt.y += 4;
+
+            if (btn.val === btn.ans) {
+                // 【正解】
+                playSE(this, 'quiz_correct');
+                btn.setFillStyle(0x00ff00); // 緑色に光る
+                
+                // 0.1秒だけ待ってからクイズ画面を消す（「押した感」を見せるため）
+                this.time.delayedCall(100, () => {
+                    [overlay, title, qText, ...buttons, ...buttons.map(b => b.txt)].forEach(obj => obj.destroy());
+                    ship.destroy();
+                    isQuizActive = false;
+                });
+            } else {
+                // 【不正解】
+                playSE(this, 'quiz_wrong');
+                btn.setFillStyle(0xff0000); // 赤色に光る
+                
+                // 少し待ってから次の問題へ（ボタンの位置も戻す）
+                this.time.delayedCall(300, () => {
+                    btn.y -= 4; // 位置を戻す
+                    txt.y -= 4;
+                    btn.setFillStyle(0x333333); // 色を戻す
+                    generateProblem(qText, buttons);
+                });
+            }
+        });
+
+        buttons.push(btn);
+    }
     generateProblem(qText, buttons);
 }
 
 function generateProblem(qText, buttons) {
-    let n1, n2, ans, sign;
-    if (Math.random() > 0.5) { n1 = Phaser.Math.Between(1, 10); n2 = Phaser.Math.Between(1, 9); ans = n1 + n2; sign = '＋'; } 
-    else { n1 = Phaser.Math.Between(5, 15); n2 = Phaser.Math.Between(1, n1); ans = n1 - n2; sign = '－'; }
-    qText.setText(`${n1} ${sign} ${n2} = ?`);
-    const options = [ans, ans + 1, ans - 1]; Phaser.Utils.Array.Shuffle(options);
-    buttons.forEach((btn, i) => { btn.val = options[i]; btn.txt.setText(options[i]); btn.ans = ans; btn.setFillStyle(0x333333); });
+    let n1, n2, ans, sign;
+
+    // --- 1. モード判定と計算式の作成 ---
+    if (currentMode === 'addition') {
+        // 【たしざん ＆ ひきざん】
+        if (Math.random() > 0.5) {
+            n1 = Phaser.Math.Between(1, 15);
+            n2 = Phaser.Math.Between(1, 14);
+            ans = n1 + n2;
+            sign = '＋';
+        } else {
+            n1 = Phaser.Math.Between(10, 20);
+            n2 = Phaser.Math.Between(1, n1 - 1);
+            ans = n1 - n2;
+            sign = '－';
+        }
+    } 
+    else if (currentMode === 'multiplication') {
+        // 【かけざん】九九の範囲
+        n1 = Phaser.Math.Between(2, 9);
+        n2 = Phaser.Math.Between(1, 9);
+        ans = n1 * n2;
+        sign = '×';
+    } 
+    else if (currentMode === 'division') {
+        // 【わりざん】九九の逆算（必ず割り切れる）
+        n2 = Phaser.Math.Between(2, 9);      // わる数
+        ans = Phaser.Math.Between(1, 9);     // こたえ
+        n1 = n2 * ans;                       // わられる数
+        sign = '÷';
+    }
+
+    // --- 2. テキストの表示設定 ---
+    qText.setText(`${n1} ${sign} ${n2} = ?`);
+
+    // --- 3. 選択肢（ダミーの答え）の作成 ---
+    // 答えの近くに数値を散らして、絶妙な難易度にする
+    let options = [ans];
+    while (options.length < 3) {
+        let diff = Phaser.Math.Between(-3, 3);
+        let dummy = ans + diff;
+        // 答えと同じ、または0以下、またはすでにリストにある数字は避ける
+        if (dummy > 0 && !options.includes(dummy)) {
+            options.push(dummy);
+        }
+    }
+
+    // 選択肢をシャッフル
+    Phaser.Utils.Array.Shuffle(options);
+
+    // --- 4. ボタンへの反映 ---
+    buttons.forEach((btn, i) => {
+        btn.val = options[i];
+        btn.txt.setText(options[i]);
+        btn.ans = ans; // 正解を保存
+        btn.setFillStyle(0x333333); // 色を初期化
+    });
 }
 
 function update(time) {
