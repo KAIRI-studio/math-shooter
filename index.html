@@ -599,7 +599,7 @@ function handleClear(scene) {
     const bestColor = record.isNewRecord ? '#00ff00' : '#aaaaaa';
     const bestLabel = record.isNewRecord ? 'しんきろく！ ' : 'ベスト: ';
     scene.add.text(W / 2, H / 2 + 30, `${bestLabel}${record.best.toFixed(2)}s`, { 
-        fontSize: '28px', color: bestColor, fontStyle: 'bold' 
+        fontSize: '28px', color: bestColor, fontStyle: 'bold' , padding:{top: 10,bottom: 10 }
     }).setOrigin(0.5).setScrollFactor(0).setDepth(26001);
 
     scene.add.text(W / 2, H / 2 + 100, '5秒後に タイトルへ もどるよ', { 
