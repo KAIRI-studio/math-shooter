@@ -82,6 +82,18 @@ function preload() {
     this.load.audio('main_bgm', 'bgm.mp3');
 }
 
+
+
+
+// 1. 変数の定義（createの外）
+let startTime;
+let timerText;
+let finalTime; // クリア時のタイムを保存用
+
+
+
+
+
 function create() {
     isGameOver = false; isQuizActive = false; isClear = false; isWaitingToStart = true;
     bullets = []; 
@@ -141,8 +153,21 @@ distanceText = this.add.text(W / 2, 50, '', {
     }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(20000);
 
 
+// 2. create関数の中で、タイマーを表示するテキストを作成
+// 「ゴールまであと...」の近くに配置すると見やすいです
+timerText = this.add.text(20, 20, 'タイム: 00:00', { 
+    fontSize: '32px', 
+    color: '#ffffff',
+    fontStyle: 'bold',
+    stroke: '#000000',
+    strokeThickness: 4,
+    padding: { top: 10 }
+}).setScrollFactor(0).setDepth(1000);
+
+
 
     bgm = this.sound.add('main_bgm', { volume: 0.15, loop: true });
+
 
    createMainMenu(this);
 
@@ -225,6 +250,10 @@ function createMainMenu(scene) {
                 b.btn.destroy();
                 b.txt.destroy();
             });
+
+            // メニューを消す処理のあたりに追加
+            startTime = scene.time.now; // 現在の時間を記録
+
 
             isWaitingToStart = false; 
             if (bgm) bgm.play();
@@ -485,91 +514,121 @@ function generateProblem(qText, buttons) {
     });
 }
 
-function update(time) {
-    if (isGameOver || isClear || isWaitingToStart) { if (player.body) player.setVelocityX(0); return; }
-    distanceText.setText(`ゴールまで あと ${Math.max(0, Math.floor((GOAL_DISTANCE - player.x) / 10))}m`);
-    if (player.x >= GOAL_DISTANCE) { handleClear(this); return; }
-    bg.tilePositionX = this.cameras.main.scrollX * 0.4;
-    enemies.getChildren().forEach(e => { if (e.body.velocity.x > 0) e.setFlipX(false); else e.setFlipX(true); });
-    if (this.input.activePointer.isDown && time > lastShootTime + 200 && !isQuizActive && this.input.activePointer.x > 300 && this.input.activePointer.x < window.innerWidth - 200) { shoot(this); lastShootTime = time; }
-    if (!isQuizActive) { 
-        if (keys.A.isDown || moveLeft) { player.setVelocityX(-400); player.setFlipX(true); lastDirection = 'left'; } 
-        else if (keys.D.isDown || moveRight) { player.setVelocityX(400); player.setFlipX(false); lastDirection = 'right'; } 
-        else { player.setVelocityX(0); } 
-    }
-    if ((keys.W.isDown || spaceKey.isDown || doJump) && player.body.blocked.down) player.setVelocityY(-800);
-    bullets = bullets.filter(b => { 
-        if (!b.active) return false; 
-        this.physics.overlap(b, enemies, (bullet, enemy) => { 
-            let hp = enemy.getData('hp') - 1; enemy.setData('hp', hp); enemy.setTint(0xff0000); 
-            if (hp <= 0) { playSE(this, 'destroy'); enemy.destroy(); } else { playSE(this, 'hit'); }
-            this.time.delayedCall(100, () => { if(enemy && enemy.active) enemy.clearTint(); }); 
-            bullet.active = false; bullet.destroy(); 
-        }); return b.active; 
-    });
+// --- update関数：引数に time を追加 ---
+function update(time, delta) {
+    if (!isWaitingToStart && !isClear) {
+        let elapsed = (this.time.now - startTime) / 1000;
+        timerText.setText('タイム: ' + elapsed.toFixed(2) + 's');
+    }
+
+    if (isGameOver || isClear || isWaitingToStart) { 
+        if (player.body) player.setVelocityX(0); 
+        return; 
+    }
+
+    distanceText.setText(`ゴールまで あと ${Math.max(0, Math.floor((GOAL_DISTANCE - player.x) / 10))}m`);
+    
+    if (player.x >= GOAL_DISTANCE) { 
+        handleClear(this); 
+        return; 
+    }
+
+    bg.tilePositionX = this.cameras.main.scrollX * 0.4;
+    enemies.getChildren().forEach(e => { 
+        if (e.body.velocity.x > 0) e.setFlipX(false); else e.setFlipX(true); 
+    });
+
+    // ここで time を使うため、引数に time が必要でした
+    if (this.input.activePointer.isDown && time > lastShootTime + 200 && !isQuizActive && this.input.activePointer.x > 300 && this.input.activePointer.x < window.innerWidth - 200) { 
+        shoot(this); 
+        lastShootTime = time; 
+    }
+
+    if (!isQuizActive) { 
+        if (keys.A.isDown || moveLeft) { player.setVelocityX(-400); player.setFlipX(true); lastDirection = 'left'; } 
+        else if (keys.D.isDown || moveRight) { player.setVelocityX(400); player.setFlipX(false); lastDirection = 'right'; } 
+        else { player.setVelocityX(0); } 
+    }
+
+    if ((keys.W.isDown || spaceKey.isDown || doJump) && player.body.blocked.down) player.setVelocityY(-800);
+
+    bullets = bullets.filter(b => { 
+        if (!b.active) return false; 
+        this.physics.overlap(b, enemies, (bullet, enemy) => { 
+            let hp = enemy.getData('hp') - 1; enemy.setData('hp', hp); enemy.setTint(0xff0000); 
+            if (hp <= 0) { playSE(this, 'destroy'); enemy.destroy(); } else { playSE(this, 'hit'); }
+            this.time.delayedCall(100, () => { if(enemy && enemy.active) enemy.clearTint(); }); 
+            bullet.active = false; bullet.destroy(); 
+        }); return b.active; 
+    });
 }
 
-// クリアした時
+// --- handleClear関数：重複を削除 ---
 function handleClear(scene) {
-    if (isClear) return;
-    isClear = true;
-    if(bgm) bgm.stop(); // BGMを止める
+    if (isClear) return;
+    isClear = true;
+    if(bgm) bgm.stop();
+    playClearJingle(scene);
 
-    // ★ 修正1: クリア時のジングルを鳴らす（ここはそのまま）
-    playClearJingle(scene); 
+    finalTime = (scene.time.now - startTime) / 1000;
+    timerText.setText('タイム: ' + finalTime.toFixed(2) + 's');
 
-    const W = scene.scale.width;
-    const H = scene.scale.height;
+    // ベストタイムの更新
+    const record = updateBestTime(currentMode, finalTime);
 
-    // ★ 修正2: 「クリア！！」の文字を「スタート」と同じスタイルにする
-    const clearButton = scene.add.rectangle(W / 2, H / 2, 400, 100, 0xffffff, 0.2)
-        .setScrollFactor(0)
-        .setStrokeStyle(4, 0xffffff)
-        .setDepth(20000); // 最前面に
+    const W = scene.scale.width;
+    const H = scene.scale.height;
 
-    const clearText = scene.add.text(W / 2, H / 2, 'クリア！！', { 
-        fontSize: '48px', // 「スタート」と同じサイズ
-        color: '#fff', 
-        fontStyle: 'bold' 
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(20001); // 文字を枠の上に
+    // 背景を暗くする
+    scene.add.rectangle(W/2, H/2, W, H, 0x000000, 0.5).setScrollFactor(0).setDepth(25000);
 
-    // 文字を少しだけフワフワさせる演出（オプション：なくても良いです）
-    scene.tweens.add({
-        targets: clearText,
-        y: clearText.y - 10,
-        duration: 300,
-        yoyo: true, // 往復
-        repeat: -1, // 無限に繰り返す
-        ease: 'Sine.easeInOut'
-    });
+    // ボード
+    const board = scene.add.rectangle(W / 2, H / 2, 500, 350, 0x333333, 0.9)
+        .setStrokeStyle(4, 0xffffff).setScrollFactor(0).setDepth(26000);
 
-    // ★ 修正3: プレイヤーを白く光らせる（点滅エフェクト）
-    if (player.body) {
-        player.setVelocityX(0); // 動きを止める
-        
-        // プレイヤーの色を白に固定（これが「光る」ベース）
-        player.setTint(0xffffff); 
-        
-        // プレイヤーを点滅させる
-        scene.tweens.add({
-            targets: player,
-            alpha: { from: 1, to: 0.2 }, // 1（不透明）から0.2（ほぼ透明）へ
-            duration: 150, // 0.15秒で
-            yoyo: true, // 往復
-            repeat: -1, // 無限に繰り返す
-            ease: 'Linear'
-        });
-    }
+    // --- テキストをカタカナに修正 ---
+    scene.add.text(W / 2, H / 2 - 120, 'クリア！！', { 
+        fontSize: '40px', color: '#ffff00', fontStyle: 'bold' 
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(26001);
 
-    // ★ 修正4: 敵を全部消す（ここはそのまま）
-    enemies.clear(true, true);
-    bombs.clear(true, true);
+    scene.add.text(W / 2, H / 2 - 40, `タイム: ${finalTime.toFixed(2)}s`, { 
+        fontSize: '48px', color: '#ffffff', fontStyle: 'bold' 
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(26001);
 
-    // ★ 修正5: 5秒後にリロード（ここはそのまま）
-    scene.time.delayedCall(5000, () => {
-        window.location.reload(); 
-    });
+    // 自己ベストの表示
+    const bestColor = record.isNewRecord ? '#00ff00' : '#aaaaaa';
+    const bestLabel = record.isNewRecord ? 'しんきろく！ ' : 'ベスト: ';
+    scene.add.text(W / 2, H / 2 + 30, `${bestLabel}${record.best.toFixed(2)}s`, { 
+        fontSize: '28px', color: bestColor, fontStyle: 'bold' 
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(26001);
+
+    scene.add.text(W / 2, H / 2 + 100, '5秒後に タイトルへ もどるよ', { 
+    fontSize: '20px', 
+    color: '#cccccc',
+    padding: { top: 10, bottom: 10 } // ★ 上下に余白を作る
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(26001);
+
+    // プレイヤーの点滅演出
+    if (player.body) {
+        player.setVelocityX(0);
+        player.setTint(0xffffff); 
+        scene.tweens.add({
+            targets: player,
+            alpha: { from: 1, to: 0.2 },
+            duration: 150,
+            yoyo: true, repeat: -1
+        });
+    }
+
+    enemies.clear(true, true);
+    bombs.clear(true, true);
+
+    scene.time.delayedCall(5000, () => {
+        window.location.reload(); 
+    });
 }
+
+
 
 
 
@@ -656,7 +715,24 @@ function scheduleNextBombSpawn(scene) {
     }); 
 }
 
+
 function shoot(scene) { if (isWaitingToStart) return; playSE(scene, 'shoot'); const b = scene.add.rectangle(player.x + (lastDirection === 'right' ? 45 : -45), player.y - 70, 25, 6, 0xffff00); scene.physics.add.existing(b); b.body.setAllowGravity(false); b.body.setVelocityX(lastDirection === 'left' ? -1500 : 1500); b.active = true; bullets.push(b); scene.time.delayedCall(1000, () => { if(b.active) { b.active = false; b.destroy(); } }); }
+
+// タイムを保存・取得する関数
+function updateBestTime(mode, newTime) {
+    const key = `bestTime_${mode}`;
+    const savedTime = localStorage.getItem(key);
+    
+    // まだ記録がないか、今回のタイムの方が速い（数値が小さい）場合
+    if (!savedTime || newTime < parseFloat(savedTime)) {
+        localStorage.setItem(key, newTime);
+        return { isNewRecord: true, best: newTime };
+    }
+    return { isNewRecord: false, best: parseFloat(savedTime) };
+}
+
+
+
 </script>
 </body>
 </html>
