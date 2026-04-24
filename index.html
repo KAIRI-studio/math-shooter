@@ -2,150 +2,98 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>算数シューター・リベンジ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>スマホ対応テスト・テイク2</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
-        body {
+        /* iPhoneのSafari対策：高さを動的に計算 */
+        html, body {
+            height: 100%;
+            height: -webkit-fill-available;
             margin: 0;
             padding: 0;
             overflow: hidden;
             background-color: #000;
-            touch-action: none; /* スマホのブラウザ操作（ズーム等）を無効化 */
-            font-family: sans-serif;
+            touch-action: none;
         }
 
-        /* ゲームコンテナ */
         #game-container {
-            width: 100vw;
-            height: 100vh;
-            display: none; /* 最初は隠しておく */
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
         }
 
-        /* 起動ボタン画面 */
-        #boot-screen {
+        #boot-screen, #orientation-warning {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(45deg, #1a1a1a, #4a4a4a);
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
+            background: #222; color: #fff;
+            display: flex; justify-content: center; align-items: center;
+            z-index: 100; flex-direction: column;
         }
 
         #start-btn {
-            padding: 20px 40px;
-            font-size: 24px;
-            font-weight: bold;
-            color: #fff;
-            background: #ff4757;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            padding: 20px 40px; font-size: 20px; background: #ff4757;
+            color: white; border: none; border-radius: 30px; cursor: pointer;
         }
 
-        /* 縦向き警告画面 */
-        #orientation-warning {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: #222;
-            color: #fff;
-            z-index: 1000;
-            text-align: center;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-
-        /* 縦向きの時だけ警告を表示 */
         @media screen and (orientation: portrait) {
-            #orientation-warning { display: flex; }
+            #orientation-warning { display: flex; z-index: 200; }
+        }
+        @media screen and (orientation: landscape) {
+            #orientation-warning { display: none; }
         }
     </style>
 </head>
 <body>
 
-    <div id="orientation-warning">
-        <h2>📱 画面を横にしてね！</h2>
-        <p>このゲームは横向き専用です。</p>
-    </div>
+    <div id="orientation-warning"><h2>📱 画面を横にしてね！</h2></div>
 
     <div id="boot-screen">
-        <button id="start-btn">ゲーム スタート (ぜんがめん)</button>
+        <button id="start-btn">スタート (ぜんがめん)</button>
     </div>
 
     <div id="game-container"></div>
 
     <script>
-        // --- 設定 ---
         const config = {
             type: Phaser.AUTO,
             parent: 'game-container',
             scale: {
-                mode: Phaser.Scale.FIT, // 画面に合わせてリサイズ
-                autoCenter: Phaser.Scale.CENTER_BOTH, // 中央配置
+                mode: Phaser.Scale.FIT, // 比率を維持して収める
+                autoCenter: Phaser.Scale.CENTER_BOTH,
                 width: 1280,
                 height: 720
             },
-            physics: {
-                default: 'arcade',
-                arcade: { gravity: { y: 0 }, debug: false }
-            },
-            scene: { preload, create, update }
+            scene: { create }
         };
 
         let game;
-        const startBtn = document.getElementById('start-btn');
-        const bootScreen = document.getElementById('boot-screen');
-        const gameContainer = document.getElementById('game-container');
+        document.getElementById('start-btn').addEventListener('click', function() {
+            // フルスクリーン化の処理（iPhoneでは効かない場合が多いが、バーを隠すきっかけになる）
+            const el = document.documentElement;
+            if (el.requestFullscreen) el.requestFullscreen();
+            else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
 
-        // スタートボタンクリック
-        startBtn.addEventListener('click', () => {
-            // フルスクリーン化を試みる
-            if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen().catch(() => {});
-            } else if (document.documentElement.webkitRequestFullscreen) {
-                document.documentElement.webkitRequestFullscreen();
-            }
-
-            bootScreen.style.display = 'none';
-            gameContainer.style.display = 'block';
-
-            // ゲーム本体を起動
+            document.getElementById('boot-screen').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
             game = new Phaser.Game(config);
         });
 
-        // --- ゲームの中身（テスト用に最小限） ---
-        function preload() {
-            // テスト用の画像などがないので、ここでは何もロードしません
-        }
-
         function create() {
             const { width, height } = this.scale;
+            this.add.rectangle(0, 0, width, height, 0x333333).setOrigin(0);
 
-            // 背景
-            this.add.rectangle(0, 0, width, height, 0x1a1a1a).setOrigin(0);
+            this.add.text(width / 2, height / 2, 'テスト2: 下まで見えますか？', { fontSize: '40px' }).setOrigin(0.5);
 
-            // テスト用テキスト
-            this.add.text(width / 2, height / 2 - 50, 'スマホ対応テスト', {
-                fontSize: '64px', color: '#ffffff', fontStyle: 'bold'
-            }).setOrigin(0.5);
-
-            this.add.text(width / 2, height / 2 + 50, 'はみ出さずに表示されていますか？', {
-                fontSize: '32px', color: '#00ff00'
-            }).setOrigin(0.5);
-
-            // 四隅にマーカーを置いて、端が切れていないか確認
-            this.add.circle(50, 50, 20, 0xff0000); // 左上
-            this.add.circle(width - 50, 50, 20, 0xff0000); // 右上
-            this.add.circle(50, height - 50, 20, 0xff0000); // 左下
-            this.add.circle(width - 50, height - 50, 20, 0xff0000); // 右下
+            // 四隅に「少し内側」に丸を配置（端から100pxの位置）
+            // これが4つとも見えれば、ゲーム画面は100%収まっています
+            this.add.circle(100, 100, 40, 0xff0000); // 左上
+            this.add.circle(width - 100, 100, 40, 0xff0000); // 右上
+            this.add.circle(100, height - 100, 40, 0x00ffff); // 左下 (水色)
+            this.add.circle(width - 100, height - 100, 40, 0x00ffff); // 右下 (水色)
         }
-
-        function update() {}
     </script>
 </body>
 </html>
