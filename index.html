@@ -19,6 +19,38 @@
     }
 </style>
 
+
+<!-- Firebase SDK の読み込み -->
+<script type="module">
+  // Googleのサーバーから、Firebaseを使うための「機能」を呼び出します
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, query, where, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  // ★ここを、さっき表示された自分の Config に書き換えてください
+  const firebaseConfig = {
+   apiKey: "AIzaSyCGR3pkm4CsDux5m_bsUfOd4quC-gNbHYU",
+   authDomain: "math-shooter-db.firebaseapp.com",
+   projectId: "math-shooter-db",
+   storageBucket: "math-shooter-db.firebasestorage.app",
+   messagingSenderId: "218547714046",
+   appId: "1:218547714046:web:92edf3d928fc4a2b95b2af",
+   measurementId: "G-6WDJ0LXW37"
+  };
+
+
+  // Firebaseを起動
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // あなたのゲームプログラム（Phaser）から Firebase を操作できるように窓口を作ります
+  window.db = db;
+  window.dbMethods = { addDoc, collection, query, where, orderBy, limit, getDocs };
+</script>
+
+
+
+
+
 <div id="mobile-warning">
     <div style="font-size: 50px; margin-bottom: 20px;">⚠️</div>
     <div style="font-size: 20px; font-weight: bold; line-height: 1.6;">
@@ -115,6 +147,24 @@ function preload() {
 let startTime;
 let timerText;
 let finalTime; // クリア時のタイムを保存用
+
+
+
+// 名前管理用の変数
+let userName = localStorage.getItem('shooter_name') || `プレイヤー${Math.floor(Math.random() * 9000) + 1000}`;
+localStorage.setItem('shooter_name', userName); // 初回なら保存
+
+// 名前変更ボタンを表示する関数
+function showNameChangeDialog(scene) {
+    const newName = window.prompt("名前を入力してね（10文字まで）", userName);
+    if (newName && newName.trim().length > 0) {
+        userName = newName.trim().substring(0, 10);
+        localStorage.setItem('shooter_name', userName);
+        alert(`名前を「${userName}」に変更したよ！`);
+        // メニュー画面などの表示を更新したい場合はここでリロードか再描画
+        location.reload(); 
+    }
+}
 
 
 
@@ -221,7 +271,34 @@ function createMainMenu(scene) {
 
     // 背景を暗くする
     const menuBg = scene.add.rectangle(W/2, H/2, W, H, 0x000000, 0.7).setScrollFactor(0).setDepth(30000);
+    // タイトル
     const titleText = scene.add.text(W/2, H/2 - 200, 'Math Shooter', { fontSize: '64px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5).setScrollFactor(0).setDepth(30001);
+
+    // --- ★ここから追加：名前表示と変更ボタン ---
+    // --- 修正版：名前表示と変更ボタン ---
+    // Y座標を少し上に詰め、paddingを追加して文字切れを防止
+    const nameLabel = scene.add.text(W/2, H/2 - 300, `なまえ: ${userName}`, { 
+        fontSize: '24px', 
+        color: '#aaa',
+        padding: { top: 10, bottom: 10 } // 上下の余白を作って文字切れを防ぐ
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(30001);
+
+    const changeNameBtn = scene.add.text(W/2, H/2 - 265, '[ なまえを かえる ]', { 
+        fontSize: '20px', 
+        color: '#00ff00', 
+        fontStyle: 'bold',
+        padding: { top: 10, bottom: 10 } // ここも同様に余白を追加
+    })
+        .setOrigin(0.5)
+        .setInteractive({ useHandCursor: true })
+        .setScrollFactor(0)
+        .setDepth(30001);
+
+    // タイトルとの距離を保つため、タイトル自体の位置も少し調整が必要かもしれません
+    // もしタイトルも近ければ、titleTextの第3引数（Y座標）を H/2 - 180 などに微調整してください
+
+    changeNameBtn.on('pointerdown', () => showNameChangeDialog(scene));
+    // --- ★ここまで追加 ---
 
     const modeKeys = Object.keys(MODES);
     const buttons = [];
@@ -229,58 +306,47 @@ function createMainMenu(scene) {
     modeKeys.forEach((key, i) => {
         const btnY = H / 2 - 50 + (i * 120);
         
-        // --- 1. ボタン枠 ---
-        // useHandCursor: true を入れるとマウスが乗った時に指アイコンになります
         const btn = scene.add.rectangle(W/2, btnY, 400, 80, 0xffffff, 0.2)
             .setInteractive({ useHandCursor: true }) 
             .setStrokeStyle(4, 0xffffff)
             .setScrollFactor(0)
             .setDepth(30001);
             
-        // --- 2. ボタン文字 ---
         const txt = scene.add.text(W/2, btnY, MODES[key].label, { 
-            fontSize: '32px', 
-            color: '#fff',
-            fontStyle: 'bold',
-            padding: { top: 15, bottom: 15 }
-        })
-            .setOrigin(0.5)
-            .setScrollFactor(0)
-            .setDepth(30002);
+            fontSize: '32px', color: '#fff', fontStyle: 'bold', padding: { top: 15, bottom: 15 }
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(30002);
 
-        // --- 3. 演出：マウスが乗ったとき (Over) ---
         btn.on('pointerover', () => {
-            btn.setStrokeStyle(4, 0xffff00); // 枠を黄色に
-            txt.setTint(0xffff00);           // 文字を黄色に
+            btn.setStrokeStyle(4, 0xffff00);
+            txt.setTint(0xffff00);
         });
 
-        // --- 4. 演出：マウスが外れたとき (Out) ---
         btn.on('pointerout', () => {
-            btn.setStrokeStyle(4, 0xffffff); // 白に戻す
-            txt.clearTint();                 // 文字色を戻す
+            btn.setStrokeStyle(4, 0xffffff);
+            txt.clearTint();
         });
 
-        // --- 5. 演出：クリックした瞬間 (Down) ---
         btn.on('pointerdown', () => {
-            btn.y += 4; // ボタンを少し下げる（押した感）
+            btn.y += 4;
             txt.y += 4;
             currentMode = key; 
         });
 
-        // --- 6. 実行：クリックして離したとき (Up) ---
         btn.on('pointerup', () => {
-            // ゲーム開始処理
+            // ゲーム開始処理：メニューに関連するものをすべて消す
             menuBg.destroy();
             titleText.destroy();
+            // --- ★追加：名前関連の表示も消す ---
+            nameLabel.destroy();
+            changeNameBtn.destroy();
+            // --------------------------------
+            
             buttons.forEach(b => {
                 b.btn.destroy();
                 b.txt.destroy();
             });
 
-            // メニューを消す処理のあたりに追加
-            startTime = scene.time.now; // 現在の時間を記録
-
-
+            startTime = scene.time.now;
             isWaitingToStart = false; 
             if (bgm) bgm.play();
             scheduleNextSpawn(scene);
@@ -289,7 +355,175 @@ function createMainMenu(scene) {
 
         buttons.push({ btn, txt });
     });
-} // createMainMenuの閉じカッコ
+
+
+    // --- ランキング確認ボタンの追加 ---
+    const openRankBtn = scene.add.text(W/2, H/2 + 300, '[ 全国のランキングをみる ]', { 
+        fontSize: '24px', 
+        color: '#ffcc00', 
+        fontStyle: 'bold',
+        padding: { top: 10, bottom: 10 }
+    })
+    .setOrigin(0.5)
+    .setInteractive({ useHandCursor: true })
+    .setScrollFactor(0)
+    .setDepth(30001);
+
+    openRankBtn.on('pointerdown', () => {
+        showMenuRanking(scene);
+    });
+
+
+
+}
+
+
+
+
+
+
+
+// メニュー画面でランキングを表示する関数
+async function showMenuRanking(scene) {
+    const W = scene.scale.width;
+    const H = scene.scale.height;
+
+    // 背景（メニューよりさらに手前に表示）
+    const bg = scene.add.rectangle(W/2, H/2, W, H, 0x000000, 0.9).setInteractive().setDepth(40000);
+    const container = scene.add.container(0, 0).setDepth(40001);
+
+    const title = scene.add.text(W/2, 80, '🏆 全国ランキング TOP 10', { 
+        fontSize: '40px', color: '#ffcc00', fontStyle: 'bold' 
+    }).setOrigin(0.5);
+    container.add(title);
+
+    // 閉じるボタン
+    const closeBtn = scene.add.text(W/2, H - 80, '[ メニューにもどる ]', { 
+        fontSize: '28px', color: '#fff', backgroundColor: '#333', padding: 10 
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    container.add(closeBtn);
+
+    closeBtn.on('pointerdown', () => {
+        bg.destroy();
+        container.destroy();
+    });
+
+    // モード切り替えボタン
+    const modeKeys = Object.keys(MODES);
+    modeKeys.forEach((key, i) => {
+        const mBtn = scene.add.text(150 + (i * 180), 160, MODES[key].label, { 
+            fontSize: '20px', color: '#fff', backgroundColor: '#555', padding: 8 
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+        container.add(mBtn);
+
+        mBtn.on('pointerdown', () => {
+            // 他のモードのリストを一度消して再描画
+            updateRankList(scene, key, container);
+        });
+    });
+
+    // 初期表示は「たしざん（addition）」
+    updateRankList(scene, 'addition', container);
+}
+
+
+
+
+async function updateRankList(scene, mode, container) {
+    // --- お掃除処理（ここを強化しました） ---
+    // タイトルと「メニューにもどる」ボタン、モード切替ボタン以外をすべて消す
+    const itemsToKeep = 2 + Object.keys(MODES).length; // 残しておきたいパーツの数
+    
+    // コンテナの中身を逆からチェックして、古いランキング表示を削除
+    for (let i = container.list.length - 1; i >= 0; i--) {
+        const item = container.list[i];
+        if (item.isRankItem) {
+            item.destroy();
+        }
+    }
+
+    const ranks = await getTopRankings(mode);
+    const W = scene.scale.width;
+
+    if (ranks.length === 0) {
+        const msg = scene.add.text(W/2, 350, 'まだデータがありません', { 
+            fontSize: '24px', color: '#aaa', fontStyle: 'bold' 
+        }).setOrigin(0.5);
+        
+        msg.isRankItem = true; // お掃除用の目印
+        container.add(msg);
+        return;
+    }
+
+    ranks.forEach((data, i) => {
+        const txt = scene.add.text(W/2, 240 + (i * 40), 
+            `${(i + 1).toString().padStart(2, ' ')}. ${data.name.padEnd(10, ' ')} : ${data.time.toFixed(2)}s`, 
+            { fontSize: '24px', color: '#fff', fontFamily: 'monospace' }
+        ).setOrigin(0.5);
+        
+        txt.isRankItem = true; // お掃除用の目印
+        container.add(txt);
+    });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// 【本番用】ランキングを保存する関数
+async function saveRanking(mode, time) {
+    console.log("ランキング送信中...", mode, time);
+    try {
+        const { db, dbMethods } = window;
+        // 「rankings」という本物の倉庫に保存します
+        await dbMethods.addDoc(dbMethods.collection(db, "rankings"), {
+            name: userName, // 今の名前
+            mode: mode,     // たしざん、かけざん等のモード
+            time: parseFloat(time), // タイム（数字として保存）
+            date: new Date() // 送信した日時
+        });
+        console.log("ランキング登録完了！");
+    } catch (e) {
+        console.error("ランキング登録失敗:", e);
+    }
+}
+
+
+
+// 【本番用】ランキングを読み込む関数
+async function getTopRankings(mode) {
+    console.log(`${mode} のTOP10を取得中...`);
+    try {
+        const { db, dbMethods } = window;
+        // rankingsコレクションから、同じモードのものを、タイムが速い順（昇順）に10件取得
+        const q = dbMethods.query(
+            dbMethods.collection(db, "rankings"),
+            dbMethods.where("mode", "==", mode),
+            dbMethods.orderBy("time", "asc"),
+            dbMethods.limit(10)
+        );
+
+        const querySnapshot = await dbMethods.getDocs(q);
+        const ranks = [];
+        querySnapshot.forEach((doc) => {
+            ranks.push(doc.data());
+        });
+        return ranks;
+    } catch (e) {
+        console.error("ランキング取得失敗:", e);
+        return [];
+    }
+}
+
 
 
 
@@ -598,6 +832,8 @@ function handleClear(scene) {
 
     finalTime = (scene.time.now - startTime) / 1000;
     timerText.setText('タイム: ' + finalTime.toFixed(2) + 's');
+    // クリア処理のところに追記
+    saveRanking(currentMode, finalTime);
 
     // ベストタイムの更新
     const record = updateBestTime(currentMode, finalTime);
@@ -633,6 +869,51 @@ function handleClear(scene) {
     color: '#cccccc',
     padding: { top: 10, bottom: 10 } // ★ 上下に余白を作る
     }).setOrigin(0.5).setScrollFactor(0).setDepth(26001);
+
+
+
+
+
+
+    
+    // --- ランキング表示の仕上げ ---
+    // --- ランキング表示のレイアウト修正 ---
+    getTopRankings(currentMode).then(ranks => {
+        if (ranks.length === 0) return;
+
+        const rankX = W / 2 + 420; // 中央から右にずらす距離を少し広げました
+        const rankY = H / 2;
+
+        // ランキング専用の背景ボード（少し暗くして文字を読みやすくする）
+        scene.add.rectangle(rankX, rankY, 320, 420, 0x000000, 0.7)
+            .setStrokeStyle(2, 0xffcc00)
+            .setScrollFactor(0)
+            .setDepth(26001);
+
+        // タイトル
+        scene.add.text(rankX, rankY - 180, '🏆 全国 TOP 10', { 
+            fontSize: '24px', color: '#ffcc00', fontStyle: 'bold' 
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(26002);
+
+        // 各順位の表示
+        ranks.forEach((data, i) => {
+            const shortName = data.name.length > 8 ? data.name.substring(0, 8) + '..' : data.name;
+            // 名前とタイムの間を少し空ける
+            const rankText = `${(i + 1).toString().padStart(2, ' ')}. ${shortName.padEnd(10, ' ')} ${data.time.toFixed(2)}s`;
+            
+            scene.add.text(rankX, rankY - 130 + (i * 32), rankText, { 
+                fontSize: '18px', 
+                color: '#ffffff', 
+                fontFamily: 'monospace' // ズレを防ぐため等幅フォントを指定
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(26002);
+        });
+    });
+
+
+
+
+
+
 
     // プレイヤーの点滅演出
     if (player.body) {
@@ -694,10 +975,10 @@ function spawnEnemy(scene) {
     e.body.setSize(e.width * 0.4, e.height * 0.6).setOffset((e.width - e.width * 0.4) / 2, e.height - e.height * 0.6); 
     
     if (isFromLeft) { 
-        e.body.setVelocityX(200); 
+        e.body.setVelocityX(100); 
         e.setTint(0xffaa00); 
     } else { 
-        e.body.setVelocityX(-100); 
+        e.body.setVelocityX(-50); 
     } 
 }
 
@@ -717,7 +998,7 @@ function spawnBomb(scene) {
     bombs.add(b); 
     
     scene.physics.add.collider(b, ground); 
-    b.body.setVelocityX(-200); 
+    b.body.setVelocityX(-100); 
 }
 
 
