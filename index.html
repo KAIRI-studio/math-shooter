@@ -336,10 +336,11 @@ function createMainMenu(scene) {
             // ゲーム開始処理：メニューに関連するものをすべて消す
             menuBg.destroy();
             titleText.destroy();
-            // --- ★追加：名前関連の表示も消す ---
             nameLabel.destroy();
             changeNameBtn.destroy();
-            // --------------------------------
+
+            // ★ここを追加！ ランキングボタンを消す
+            if (openRankBtn) openRankBtn.destroy(); 
             
             buttons.forEach(b => {
                 b.btn.destroy();
