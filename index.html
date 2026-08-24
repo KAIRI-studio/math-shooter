@@ -61,7 +61,7 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KAIRI Studio - Math Shooter</title>
+    <title>CASTOR presents - Math Shooter</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style> body { margin: 0; padding: 0; overflow: hidden; background: #000; } canvas { display: block; } </style>
 </head>
@@ -272,7 +272,17 @@ function createMainMenu(scene) {
     // 背景を暗くする
     const menuBg = scene.add.rectangle(W/2, H/2, W, H, 0x000000, 0.7).setScrollFactor(0).setDepth(30000);
     // タイトル
-    const titleText = scene.add.text(W/2, H/2 - 200, 'Math Shooter', { fontSize: '64px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5).setScrollFactor(0).setDepth(30001);
+    const castorText = scene.add.text(W/2, H/2 - 330, 'CASTOR presents', {
+        fontSize: '28px',
+        color: '#ffcc00',
+        fontStyle: 'bold'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(30001);
+
+    const titleText = scene.add.text(W/2, H/2 - 200, 'MATH SHOOTER', { 
+        fontSize: '64px',
+        fontStyle: 'bold',
+        color: '#fff'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(30001);
 
     // --- ★ここから追加：名前表示と変更ボタン ---
     // --- 修正版：名前表示と変更ボタン ---
@@ -335,6 +345,7 @@ function createMainMenu(scene) {
         btn.on('pointerup', () => {
             // ゲーム開始処理：メニューに関連するものをすべて消す
             menuBg.destroy();
+            castorText.destroy();
             titleText.destroy();
             nameLabel.destroy();
             changeNameBtn.destroy();
@@ -850,6 +861,12 @@ function handleClear(scene) {
         .setStrokeStyle(4, 0xffffff).setScrollFactor(0).setDepth(26000);
 
     // --- テキストをカタカナに修正 ---
+    scene.add.text(W / 2, H / 2 - 170, 'CASTOR MATH SHOOTER', {
+        fontSize: '22px',
+        color: '#ffcc00',
+        fontStyle: 'bold'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(26001);
+
     scene.add.text(W / 2, H / 2 - 120, 'クリア！！', { 
         fontSize: '40px', color: '#ffff00', fontStyle: 'bold' 
     }).setOrigin(0.5).setScrollFactor(0).setDepth(26001);
